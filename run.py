@@ -1,15 +1,17 @@
-from flatland.evaluators.client import FlatlandRemoteClient
-from flatland.core.env_observation_builder import DummyObservationBuilder
-from my_observation_builder import CustomObservationBuilder
-import numpy as np
 import time
 
-
+import numpy as np
+from flatland.envs.agent_utils import RailAgentStatus
+from flatland.evaluators.client import FlatlandRemoteClient
 
 #####################################################################
 # Instantiate a Remote Client
 #####################################################################
+from src.extra import Extra
+from src.observations import MyTreeObsForRailEnv
+
 remote_client = FlatlandRemoteClient()
+
 
 #####################################################################
 # Define your custom controller
@@ -18,11 +20,9 @@ remote_client = FlatlandRemoteClient()
 # compute the necessary action for this step for all (or even some)
 # of the agents
 #####################################################################
-def my_controller(obs, number_of_agents):
-    _action = {}
-    for _idx in range(number_of_agents):
-        _action[_idx] = np.random.randint(0, 5)
-    return _action
+def my_controller(extra: Extra, observation, my_observation_builder):
+    return extra.rl_agent_act(observation, my_observation_builder.max_depth)
+
 
 #####################################################################
 # Instantiate your custom Observation Builder
@@ -31,7 +31,7 @@ def my_controller(obs, number_of_agents):
 # the example here : 
 # https://gitlab.aicrowd.com/flatland/flatland/blob/master/flatland/envs/observations.py#L14
 #####################################################################
-my_observation_builder = CustomObservationBuilder()
+my_observation_builder = MyTreeObsForRailEnv(max_depth=3)
 
 # Or if you want to use your own approach to build the observation from the env_step, 
 # please feel free to pass a DummyObservationBuilder() object as mentioned below,
@@ -61,9 +61,8 @@ while True:
     # over the observation of your choice.
     time_start = time.time()
     observation, info = remote_client.env_create(
-                    obs_builder_object=my_observation_builder
-                )
-    env_creation_time = time.time() - time_start
+        obs_builder_object=my_observation_builder
+    )
     if not observation:
         #
         # If the remote_client returns False on a `env_create` call,
@@ -71,7 +70,7 @@ while True:
         # evaluated on all the required evaluation environments,
         # and hence its safe to break out of the main evaluation loop
         break
-    
+
     print("Evaluation Number : {}".format(evaluation_number))
 
     #####################################################################
@@ -106,6 +105,14 @@ while True:
     time_taken_by_controller = []
     time_taken_per_step = []
     steps = 0
+
+    extra = Extra(local_env)
+    env_creation_time = time.time() - time_start
+    print("Env Creation Time : ", env_creation_time)
+    print("Agents : ", extra.env.get_num_agents())
+    print("w : ", extra.env.width)
+    print("h : ", extra.env.height)
+
     while True:
         #####################################################################
         # Evaluation of a single episode
@@ -114,7 +121,7 @@ while True:
         # Compute the action for this step by using the previously 
         # defined controller
         time_start = time.time()
-        action = my_controller(observation, number_of_agents)
+        action = my_controller(extra, observation, my_observation_builder)
         time_taken = time.time() - time_start
         time_taken_by_controller.append(time_taken)
 
@@ -129,6 +136,12 @@ while True:
         time_taken = time.time() - time_start
         time_taken_per_step.append(time_taken)
 
+        total_done = 0
+        for a in range(local_env.get_num_agents()):
+            x = (local_env.agents[a].status in [RailAgentStatus.DONE, RailAgentStatus.DONE_REMOVED])
+            total_done += int(x)
+        print("total_done:", total_done)
+
         if done['__all__']:
             print("Reward : ", sum(list(all_rewards.values())))
             #
@@ -136,18 +149,19 @@ while True:
             # particular Env instantiation is complete, and we can break out 
             # of this loop, and move onto the next Env evaluation
             break
-    
+
     np_time_taken_by_controller = np.array(time_taken_by_controller)
     np_time_taken_per_step = np.array(time_taken_per_step)
-    print("="*100)
-    print("="*100)
+    print("=" * 100)
+    print("=" * 100)
     print("Evaluation Number : ", evaluation_number)
     print("Current Env Path : ", remote_client.current_env_path)
     print("Env Creation Time : ", env_creation_time)
     print("Number of Steps : ", steps)
-    print("Mean/Std of Time taken by Controller : ", np_time_taken_by_controller.mean(), np_time_taken_by_controller.std())
+    print("Mean/Std of Time taken by Controller : ", np_time_taken_by_controller.mean(),
+          np_time_taken_by_controller.std())
     print("Mean/Std of Time per Step : ", np_time_taken_per_step.mean(), np_time_taken_per_step.std())
-    print("="*100)
+    print("=" * 100)
 
 print("Evaluation of all environments complete...")
 ########################################################################
