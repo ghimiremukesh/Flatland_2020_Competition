@@ -264,6 +264,7 @@ class MyTreeObsForRailEnv(ObservationBuilder):
         last_is_a_decision_cell = False
         target_encountered = 0
 
+        cnt = 0
         while exploring:
 
             dist_min_to_target = min(dist_min_to_target, self.env.distance_map.get()[handle, position[0], position[1],
@@ -326,6 +327,10 @@ class MyTreeObsForRailEnv(ObservationBuilder):
             cell_transitions = self.env.rail.get_transitions(*position, direction)
             direction = np.argmax(cell_transitions)
             position = get_new_position(position, direction)
+
+            cnt += 1
+            if cnt > 1000:
+                exploring = False
 
         # #############################
         # #############################

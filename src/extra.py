@@ -3,7 +3,6 @@ from flatland.core.grid.grid4_utils import get_new_position
 from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_env import RailEnvActions
-from flatland.utils.rendertools import RenderTool, AgentRenderVariant
 
 from src.agent.dueling_double_dqn import Agent
 from src.observations import normalize_observation
@@ -150,6 +149,7 @@ class Extra:
                     position = self.env.agents[a].initial_position
                     first_step = True
                 direction = self.env.agents[a].direction
+                cnt = 0
                 while position is not None:  # and position != self.env.agents[a].target:
                     possible_transitions = self.env.rail.get_transitions(*position, direction)
                     # num_transitions = np.count_nonzero(possible_transitions)
@@ -199,6 +199,10 @@ class Extra:
                                 direction = new_direction_me
                     else:
                         position = None
+
+                cnt += 1
+                if cnt > 100:
+                    position = None
 
         return agents_with_deadlock
 
