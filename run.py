@@ -8,7 +8,6 @@ from flatland.evaluators.client import FlatlandRemoteClient
 # Instantiate a Remote Client
 #####################################################################
 from src.extra import Extra
-from src.observations import MyTreeObsForRailEnv
 
 remote_client = FlatlandRemoteClient()
 
@@ -20,8 +19,8 @@ remote_client = FlatlandRemoteClient()
 # compute the necessary action for this step for all (or even some)
 # of the agents
 #####################################################################
-def my_controller(extra: Extra, observation, my_observation_builder):
-    return extra.rl_agent_act(observation, my_observation_builder.max_depth)
+def my_controller(extra: Extra, observation, info):
+    return extra.rl_agent_act(observation, info)
 
 
 #####################################################################
@@ -31,7 +30,7 @@ def my_controller(extra: Extra, observation, my_observation_builder):
 # the example here : 
 # https://gitlab.aicrowd.com/flatland/flatland/blob/master/flatland/envs/observations.py#L14
 #####################################################################
-my_observation_builder = MyTreeObsForRailEnv(max_depth=3)
+my_observation_builder = Extra(max_depth=2)
 
 # Or if you want to use your own approach to build the observation from the env_step, 
 # please feel free to pass a DummyObservationBuilder() object as mentioned below,
@@ -106,7 +105,7 @@ while True:
     time_taken_per_step = []
     steps = 0
 
-    extra = Extra(local_env)
+    extra = my_observation_builder
     env_creation_time = time.time() - time_start
     print("Env Creation Time : ", env_creation_time)
     print("Agents : ", extra.env.get_num_agents())
@@ -121,7 +120,7 @@ while True:
         # Compute the action for this step by using the previously 
         # defined controller
         time_start = time.time()
-        action = my_controller(extra, observation, my_observation_builder)
+        action = my_controller(extra, observation, info)
         time_taken = time.time() - time_start
         time_taken_by_controller.append(time_taken)
 
@@ -137,10 +136,12 @@ while True:
         time_taken_per_step.append(time_taken)
 
         total_done = 0
+        total_active = 0
         for a in range(local_env.get_num_agents()):
             x = (local_env.agents[a].status in [RailAgentStatus.DONE, RailAgentStatus.DONE_REMOVED])
             total_done += int(x)
-        print("total_done:", total_done)
+            total_active += int(local_env.agents[a].status == RailAgentStatus.ACTIVE)
+        # print("total_done:", total_done, "\ttotal_active", total_active, "\t num agents", local_env.get_num_agents())
 
         if done['__all__']:
             print("Reward : ", sum(list(all_rewards.values())))
