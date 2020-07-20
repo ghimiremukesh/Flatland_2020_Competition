@@ -8,6 +8,7 @@
 # consists of 1..20 agents on a 50x50 grid. Thus the RL agent has to learn to handle 1 upto 20 agents.
 #
 #   - https://github.com/mitchellgoffpc/flatland-training
+# ./adrian_egli_ppo_training_done.png
 #
 # The key idea behind this observation is that agent's can not freely choose where they want.
 #
