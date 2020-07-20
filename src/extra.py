@@ -1,12 +1,35 @@
+#
+# Author Adrian Egli
+#
+# This observation solves the FLATland challenge ROUND 1 - with agent's done 19.3%
+#
+# Training:
+# For the training of the PPO RL agent I showed 10k episodes - The episodes used for the training
+# consists of 1..20 agents on a 50x50 grid. Thus the RL agent has to learn to handle 1 upto 20 agents.
+#
+#   - https://github.com/mitchellgoffpc/flatland-training
+#
+# The key idea behind this observation is that agent's can not freely choose where they want.
+#
+# ./images/adrian_egli_decisions.png
+# ./images/adrian_egli_info.png
+# ./images/adrian_egli_start.png
+# ./images/adrian_egli_target.png
+#
+# Private submission
+# http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/8
+
 import numpy as np
 from flatland.core.env_observation_builder import ObservationBuilder
 from flatland.core.grid.grid4_utils import get_new_position
 from flatland.envs.agent_utils import RailAgentStatus
-# Adrian Egli performance fix (the fast methods brings more than 50%)
 from flatland.envs.rail_env import RailEnvActions
 
 from src.ppo.agent import Agent
 
+
+# ------------------------------------- USE FAST_METHOD from FLATland master ------------------------------------------
+# Adrian Egli performance fix (the fast methods brings more than 50%)
 
 def fast_isclose(a, b, rtol):
     return (a < (b + rtol)) or (a < (b - rtol))
@@ -36,6 +59,8 @@ def fast_position_equal(pos_1: (int, int), pos_2: (int, int)) -> bool:
 def fast_count_nonzero(possible_transitions: (int, int, int, int)):
     return possible_transitions[0] + possible_transitions[1] + possible_transitions[2] + possible_transitions[3]
 
+
+# ------------------------------- END - USE FAST_METHOD from FLATland master ------------------------------------------
 
 class Extra(ObservationBuilder):
 
@@ -170,90 +195,6 @@ class Extra(ObservationBuilder):
 
     def normalize_observation(self, obsData):
         return obsData
-
-    def check_deadlock(self, only_next_cell_check=True, handle=None):
-        agents_with_deadlock = []
-        agents = range(self.env.get_num_agents())
-        if handle is not None:
-            agents = [handle]
-        for a in agents:
-            if self.env.agents[a].status < RailAgentStatus.DONE:
-                position = self.env.agents[a].position
-                first_step = True
-                if position is None:
-                    position = self.env.agents[a].initial_position
-                    first_step = True
-                direction = self.env.agents[a].direction
-                while position is not None:  # and position != self.env.agents[a].target:
-                    possible_transitions = self.env.rail.get_transitions(*position, direction)
-                    # num_transitions = np.count_nonzero(possible_transitions)
-                    agents_on_switch, agents_near_to_switch, agents_near_to_switch_all = self.check_agent_descision(
-                        position,
-                        direction,
-                        self.switches,
-                        self.switches_neighbours)
-
-                    if not agents_on_switch or first_step:
-                        first_step = False
-                        new_direction_me = np.argmax(possible_transitions)
-                        new_cell_me = get_new_position(position, new_direction_me)
-                        opp_agent = self.env.agent_positions[new_cell_me]
-                        if opp_agent != -1:
-                            opp_position = self.env.agents[opp_agent].position
-                            opp_direction = self.env.agents[opp_agent].direction
-                            opp_agents_on_switch, opp_agents_near_to_switch, agents_near_to_switch_all = \
-                                self.check_agent_descision(opp_position,
-                                                           opp_direction,
-                                                           self.switches,
-                                                           self.switches_neighbours)
-
-                            # opp_possible_transitions = self.env.rail.get_transitions(*opp_position, opp_direction)
-                            # opp_num_transitions = np.count_nonzero(opp_possible_transitions)
-                            if not opp_agents_on_switch:
-                                if opp_direction != direction:
-                                    agents_with_deadlock.append(a)
-                                    position = None
-                                else:
-                                    if only_next_cell_check:
-                                        position = None
-                                    else:
-                                        position = new_cell_me
-                                        direction = new_direction_me
-                            else:
-                                if only_next_cell_check:
-                                    position = None
-                                else:
-                                    position = new_cell_me
-                                    direction = new_direction_me
-                        else:
-                            if only_next_cell_check:
-                                position = None
-                            else:
-                                position = new_cell_me
-                                direction = new_direction_me
-                    else:
-                        position = None
-
-        return agents_with_deadlock
-
-    def is_collision(self, obsData):
-        if obsData[4] == 1:
-            # Agent is READY_TO_DEPART
-            return False
-        if obsData[6] == 1:
-            # Agent is DONE / DONE_REMOVED
-            return False
-
-        same_dir = obsData[18] + obsData[19] + obsData[20] + obsData[21]
-        if same_dir > 0:
-            # Agent detect an agent walking in same direction and between the agent and the other agent there are all
-            # cell unoccupied. (Follows the agents)
-            return False
-        freedom = obsData[10] + obsData[11] + obsData[12] + obsData[13]
-        blocked = obsData[14] + obsData[15] + obsData[16] + obsData[17]
-        # if the Agent has equal freedom or less then the agent can not avoid the agent travelling towards
-        # (opposite) direction -> this can cause a deadlock (locally tested)
-        return freedom <= blocked and freedom > 0
 
     def reset(self):
         self.build_data()
