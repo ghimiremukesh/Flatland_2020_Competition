@@ -30,7 +30,7 @@ def my_controller(extra: Extra, observation, info):
 # the example here : 
 # https://gitlab.aicrowd.com/flatland/flatland/blob/master/flatland/envs/observations.py#L14
 #####################################################################
-my_observation_builder = Extra(max_depth=2)
+my_observation_builder = Extra(max_depth=20)
 
 # Or if you want to use your own approach to build the observation from the env_step, 
 # please feel free to pass a DummyObservationBuilder() object as mentioned below,
@@ -112,6 +112,8 @@ while True:
     print("w : ", extra.env.width)
     print("h : ", extra.env.height)
 
+    old_total_done = 0
+    old_total_active = 0
     while True:
         #####################################################################
         # Evaluation of a single episode
@@ -141,7 +143,11 @@ while True:
             x = (local_env.agents[a].status in [RailAgentStatus.DONE, RailAgentStatus.DONE_REMOVED])
             total_done += int(x)
             total_active += int(local_env.agents[a].status == RailAgentStatus.ACTIVE)
-        # print("total_done:", total_done, "\ttotal_active", total_active, "\t num agents", local_env.get_num_agents())
+        if old_total_done != total_done or old_total_active != total_active:
+            print("total_done:", total_done, "\ttotal_active", total_active, "\t num agents",
+                  local_env.get_num_agents())
+        old_total_done = total_done
+        old_total_active = total_active
 
         if done['__all__']:
             print("Reward : ", sum(list(all_rewards.values())))
