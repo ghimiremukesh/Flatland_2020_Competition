@@ -353,7 +353,12 @@ class Extra(ObservationBuilder):
 
     def rl_agent_act(self, observation, info, eps=0.0):
         if len(self.random_agent_starter) != self.env.get_num_agents():
-            self.random_agent_starter = np.random.random(self.env.get_num_agents()) * 1000.0
+            f = self.env._max_episode_steps
+            if f is None:
+                f = 1000.0
+            else:
+                f *= 0.8
+            self.random_agent_starter = np.random.random(self.env.get_num_agents()) * f
             self.loadAgent()
 
         action_dict = {}

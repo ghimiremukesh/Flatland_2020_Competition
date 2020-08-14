@@ -30,7 +30,7 @@ def my_controller(extra: Extra, observation, info):
 # the example here : 
 # https://gitlab.aicrowd.com/flatland/flatland/blob/master/flatland/envs/observations.py#L14
 #####################################################################
-my_observation_builder = Extra(max_depth=3)
+my_observation_builder = Extra(max_depth=1)
 
 # Or if you want to use your own approach to build the observation from the env_step, 
 # please feel free to pass a DummyObservationBuilder() object as mentioned below,
