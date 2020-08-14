@@ -19,7 +19,7 @@
 #
 # Private submission
 # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/8
-#
+
 import numpy as np
 from flatland.core.env_observation_builder import ObservationBuilder
 from flatland.core.grid.grid4_utils import get_new_position
@@ -67,8 +67,9 @@ class Extra(ObservationBuilder):
 
     def __init__(self, max_depth):
         self.max_depth = max_depth
-        self.observation_dim = 22
+        self.observation_dim = 26
         self.agent = None
+        self.random_agent_starter = []
 
     def build_data(self):
         if self.env is not None:
@@ -190,13 +191,6 @@ class Extra(ObservationBuilder):
     def is_collision(self, obsData):
         return False
 
-    def intern_is_collision(self, obsData):
-        if np.sum(obsData[10:14]) == 0:
-            return False
-        if np.sum(obsData[10:14]) == np.sum(obsData[14:18]):
-            return True
-        return False
-
     def reset(self):
         self.build_data()
         return
@@ -245,20 +239,15 @@ class Extra(ObservationBuilder):
                 return has_opp_agent, has_same_agent, visited
 
             if agents_on_switch:
-                pt = 0
                 for dir_loop in range(4):
                     if possible_transitions[dir_loop] == 1:
-                        pt += 1
                         hoa, hsa, v = self._explore(handle,
                                                     get_new_position(new_position, dir_loop),
                                                     dir_loop,
                                                     depth + 1)
                         visited.append(v)
-                        has_opp_agent += hoa
-                        has_same_agent + hsa
-                if pt > 0:
-                    has_opp_agent /= pt
-                    has_same_agent /= pt
+                        has_opp_agent = 0.5 * (has_opp_agent + hoa)
+                        has_same_agent = 0.5 * (has_same_agent + hsa)
                 return has_opp_agent, has_same_agent, visited
             else:
                 new_direction = fast_argmax(possible_transitions)
@@ -273,7 +262,7 @@ class Extra(ObservationBuilder):
         # observation[3]  : 1 path towards target (direction 3) / otherwise 0 -> path is longer or there is no path
         # observation[4]  : int(agent.status == RailAgentStatus.READY_TO_DEPART)
         # observation[5]  : int(agent.status == RailAgentStatus.ACTIVE)
-        # observation[6]  : deadlock estimated (collision) 1 otherwise 0
+        # observation[6]  : int(agent.status == RailAgentStatus.DONE or agent.status == RailAgentStatus.DONE_REMOVED)
         # observation[7]  : current agent is located at a switch, where it can take a routing decision
         # observation[8]  : current agent is located at a cell, where it has to take a stop-or-go decision
         # observation[9]  : current agent is located one step before/after a switch
@@ -290,7 +279,7 @@ class Extra(ObservationBuilder):
         # observation[20] : If there is a path with step (direction 2) and there is a agent with same direction -> 1
         # observation[21] : If there is a path with step (direction 3) and there is a agent with same direction -> 1
 
-        observation = np.zeros(self.observation_dim) - 1
+        observation = np.zeros(self.observation_dim)
         visited = []
         agent = self.env.agents[handle]
 
@@ -302,6 +291,7 @@ class Extra(ObservationBuilder):
             agent_virtual_position = agent.position
             observation[5] = 1
         else:
+            observation[6] = 1
             agent_virtual_position = (-1, -1)
             agent_done = True
 
@@ -319,6 +309,7 @@ class Extra(ObservationBuilder):
             for dir_loop, branch_direction in enumerate([(orientation + i) % 4 for i in range(-1, 3)]):
                 if possible_transitions[branch_direction]:
                     new_position = get_new_position(agent_virtual_position, branch_direction)
+
                     new_cell_dist = distance_map[handle,
                                                  new_position[0], new_position[1],
                                                  branch_direction]
@@ -332,6 +323,10 @@ class Extra(ObservationBuilder):
                     observation[14 + dir_loop] = has_opp_agent
                     observation[18 + dir_loop] = has_same_agent
 
+                    opp_a = self.env.agent_positions[new_position]
+                    if opp_a != -1 and opp_a != handle:
+                        observation[22 + dir_loop] = 1
+
         agents_on_switch, \
         agents_near_to_switch, \
         agents_near_to_switch_all = \
@@ -340,13 +335,11 @@ class Extra(ObservationBuilder):
         observation[8] = int(agents_near_to_switch)
         observation[9] = int(agents_near_to_switch_all)
 
-        observation[6] = int(self.intern_is_collision(observation))
-
         self.env.dev_obs_dict.update({handle: visited})
 
         return observation
 
-    def rl_agent_act(self, observation, info, eps=0.0):
+    def rl_agent_act_ADRIAN(self, observation, info, eps=0.0):
         self.loadAgent()
         action_dict = {}
         for a in range(self.env.get_num_agents()):
@@ -358,21 +351,43 @@ class Extra(ObservationBuilder):
 
         return action_dict
 
-    def rl_agent_act_X(self, observation, info, eps=0.0):
+    def rl_agent_act(self, observation, info, eps=0.0):
+        if len(self.random_agent_starter) != len(self.env.get_num_agents()):
+            self.random_agent_starter = np.random.random(self.env.get_num_agents()) * 1000.0
+            self.loadAgent()
+
+        action_dict = {}
+        for a in range(self.env.get_num_agents()):
+            if self.random_agent_starter[a] > self.env._elapsed_steps:
+                action_dict[a] = RailEnvActions.STOP_MOVING
+            elif info['action_required'][a]:
+                action_dict[a] = self.agent.act(observation[a], eps=eps)
+                # action_dict[a] = np.random.randint(5)
+            else:
+                action_dict[a] = RailEnvActions.DO_NOTHING
+
+        return action_dict
+
+    def rl_agent_act_ADRIAN_01(self, observation, info, eps=0.0):
         self.loadAgent()
         action_dict = {}
         active_cnt = 0
         for a in range(self.env.get_num_agents()):
-            if active_cnt < 1 or self.env.agents[a].status == RailAgentStatus.ACTIVE:
-                if observation[a][6] == 0:
+            if active_cnt < 10 or self.env.agents[a].status == RailAgentStatus.ACTIVE:
+                if observation[a][6] == 1:
+                    active_cnt += int(self.env.agents[a].status == RailAgentStatus.ACTIVE)
+                    action_dict[a] = RailEnvActions.STOP_MOVING
+                else:
                     active_cnt += int(self.env.agents[a].status < RailAgentStatus.DONE)
-                    if info['action_required'][a]:
-                        action_dict[a] = self.agent.act(observation[a], eps=eps)
-                        # action_dict[a] = np.random.randint(5)
+                    if (observation[a][7] + observation[a][8] + observation[a][9] > 0) or \
+                            (self.env.agents[a].status < RailAgentStatus.ACTIVE):
+                        if info['action_required'][a]:
+                            action_dict[a] = self.agent.act(observation[a], eps=eps)
+                            # action_dict[a] = np.random.randint(5)
+                        else:
+                            action_dict[a] = RailEnvActions.MOVE_FORWARD
                     else:
                         action_dict[a] = RailEnvActions.MOVE_FORWARD
-                else:
-                    action_dict[a] = RailEnvActions.STOP_MOVING
             else:
                 action_dict[a] = RailEnvActions.STOP_MOVING
 
