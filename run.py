@@ -4,10 +4,12 @@ import numpy as np
 from flatland.envs.agent_utils import RailAgentStatus
 from flatland.evaluators.client import FlatlandRemoteClient
 
+
 #####################################################################
 # Instantiate a Remote Client
 #####################################################################
 from src.extra import Extra
+from src.simple.DeadLock_Avoidance import calculate_one_step_heuristics, calculate_one_step_package_implementation,calculate_one_step,calculate_one_step_primitive_implementation
 
 remote_client = FlatlandRemoteClient()
 
@@ -19,8 +21,15 @@ remote_client = FlatlandRemoteClient()
 # compute the necessary action for this step for all (or even some)
 # of the agents
 #####################################################################
-def my_controller(extra: Extra, observation, info):
+def my_controller_RL(extra: Extra, observation, info):
     return extra.rl_agent_act(observation, info)
+
+def my_controller(local_env, obs, number_of_agents):
+    _action, _ = calculate_one_step(extra.env)
+    # _action, _ = calculate_one_step_package_implementation(local_env)
+    # _action, _ = calculate_one_step_primitive_implementation(local_env)
+    # _action, _ = calculate_one_step_heuristics(local_env)
+    return _action
 
 
 #####################################################################
