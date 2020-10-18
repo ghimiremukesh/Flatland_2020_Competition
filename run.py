@@ -1,15 +1,15 @@
 import time
 
 import numpy as np
+from flatland.core.env_observation_builder import DummyObservationBuilder
 from flatland.envs.agent_utils import RailAgentStatus
 from flatland.evaluators.client import FlatlandRemoteClient
-
 
 #####################################################################
 # Instantiate a Remote Client
 #####################################################################
+from src.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from src.extra import Extra
-from src.simple.DeadLock_Avoidance import calculate_one_step_heuristics, calculate_one_step_package_implementation,calculate_one_step,calculate_one_step_primitive_implementation
 
 remote_client = FlatlandRemoteClient()
 
@@ -21,15 +21,17 @@ remote_client = FlatlandRemoteClient()
 # compute the necessary action for this step for all (or even some)
 # of the agents
 #####################################################################
-def my_controller_RL(extra: Extra, observation, info):
-    return extra.rl_agent_act(observation, info)
+# def my_controller_RL(extra: Extra, observation, info):
+#     return extra.rl_agent_act(observation, info)
 
-def my_controller(local_env, obs, number_of_agents):
-    _action, _ = calculate_one_step(extra.env)
-    # _action, _ = calculate_one_step_package_implementation(local_env)
-    # _action, _ = calculate_one_step_primitive_implementation(local_env)
-    # _action, _ = calculate_one_step_heuristics(local_env)
-    return _action
+def my_controller(policy):
+    policy.start_step()
+    actions = {}
+    for handle in range(policy.env.get_num_agents()):
+        a = policy.act(handle, None, 0)
+        actions.update({handle: a})
+    policy.end_step()
+    return actions
 
 
 #####################################################################
@@ -39,7 +41,8 @@ def my_controller(local_env, obs, number_of_agents):
 # the example here : 
 # https://gitlab.aicrowd.com/flatland/flatland/blob/master/flatland/envs/observations.py#L14
 #####################################################################
-my_observation_builder = Extra(max_depth=1)
+# my_observation_builder = Extra(max_depth=1)
+my_observation_builder = DummyObservationBuilder()
 
 # Or if you want to use your own approach to build the observation from the env_step, 
 # please feel free to pass a DummyObservationBuilder() object as mentioned below,
@@ -99,7 +102,9 @@ while True:
     local_env = remote_client.env
     number_of_agents = len(local_env.agents)
 
-    # Now we enter into another infinite loop where we 
+    policy = DeadLockAvoidanceAgent(local_env, None, None)
+
+    # Now we enter into another infinite loop where we
     # compute the actions for all the individual steps in this episode
     # until the episode is `done`
     # 
@@ -131,7 +136,7 @@ while True:
         # Compute the action for this step by using the previously 
         # defined controller
         time_start = time.time()
-        action = my_controller(extra, observation, info)
+        action = my_controller(policy)
         time_taken = time.time() - time_start
         time_taken_by_controller.append(time_taken)
 
