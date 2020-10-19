@@ -14,6 +14,7 @@ class ShortestDistanceWalker:
         if num_transitions == 1:
             new_direction = fast_argmax(possible_transitions)
             new_position = get_new_position(position, new_direction)
+
             dist = self.env.distance_map.get()[handle, new_position[0], new_position[1], new_direction]
             return new_position, new_direction, dist, RailEnvActions.MOVE_FORWARD
         else:
@@ -32,8 +33,11 @@ class ShortestDistanceWalker:
                     positions.append(None)
                     directions.append(None)
 
-        a = np.argmin(min_distances)
+        a = self.get_action(handle, min_distances)
         return positions[a], directions[a], min_distances[a], a + 1
+
+    def get_action(self, handle, min_distances):
+        return np.argmin(min_distances)
 
     def callback(self, handle, agent, position, direction, action):
         pass

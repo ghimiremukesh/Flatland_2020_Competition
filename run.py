@@ -3,13 +3,14 @@ import time
 import numpy as np
 from flatland.core.env_observation_builder import DummyObservationBuilder
 from flatland.envs.agent_utils import RailAgentStatus
+from flatland.envs.rail_env import RailEnvActions
 from flatland.evaluators.client import FlatlandRemoteClient
+
+from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
 #####################################################################
 # Instantiate a Remote Client
 #####################################################################
-from src.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
-from src.extra import Extra
 
 remote_client = FlatlandRemoteClient()
 
@@ -24,11 +25,16 @@ remote_client = FlatlandRemoteClient()
 # def my_controller_RL(extra: Extra, observation, info):
 #     return extra.rl_agent_act(observation, info)
 
-def my_controller(policy):
+def my_controller(policy, info):
     policy.start_step()
     actions = {}
+    # print("-------- act ------------")
     for handle in range(policy.env.get_num_agents()):
-        a = policy.act(handle, None, 0)
+        if info['action_required'][handle] and handle < policy.env._elapsed_steps:
+            a = policy.act(handle, None, 0)
+        else:
+            a = RailEnvActions.DO_NOTHING
+            agent = policy.env.agents[handle]
         actions.update({handle: a})
     policy.end_step()
     return actions
@@ -136,7 +142,7 @@ while True:
         # Compute the action for this step by using the previously 
         # defined controller
         time_start = time.time()
-        action = my_controller(policy)
+        action = my_controller(policy, info)
         time_taken = time.time() - time_start
         time_taken_by_controller.append(time_taken)
 
