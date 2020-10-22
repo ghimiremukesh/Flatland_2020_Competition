@@ -13,7 +13,6 @@ class MultiPolicy(Policy):
         self.action_size = action_size
         self.memory = []
         self.loss = 0
-        self.dead_lock_avoidance_policy = DeadLockAvoidanceAgent(env, state_size, action_size)
         self.extra_policy = ExtraPolicy(state_size, action_size)
         self.ppo_policy = PPOAgent(state_size + action_size, action_size, n_agents, env)
 
@@ -40,9 +39,6 @@ class MultiPolicy(Policy):
         self.ppo_policy.step(handle, extended_state, action, reward, extended_next_state, done)
 
     def act(self, handle, state, eps=0.):
-        dead_lock_avoidance_action = self.dead_lock_avoidance_policy.act(handle, state, 0.0)
-        if dead_lock_avoidance_action == RailEnvActions.STOP_MOVING:
-            return RailEnvActions.STOP_MOVING
         action_extra_state = self.extra_policy.act(handle, state, 0.0)
         extended_state = np.copy(state)
         for action_itr in np.arange(self.action_size):
@@ -60,11 +56,9 @@ class MultiPolicy(Policy):
         self.extra_policy.test()
 
     def start_step(self):
-        self.dead_lock_avoidance_policy.start_step()
         self.extra_policy.start_step()
         self.ppo_policy.start_step()
 
     def end_step(self):
-        self.dead_lock_avoidance_policy.end_step()
         self.extra_policy.end_step()
         self.ppo_policy.end_step()

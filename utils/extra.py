@@ -84,7 +84,7 @@ class Extra(ObservationBuilder):
             def getData(self):
                 return self.shortest_distance_agent_counter, self.shortest_distance_agent_direction_counter
 
-            def callback(self, handle, agent, position, direction, action):
+            def callback(self, handle, agent, position, direction, action, possible_transitions):
                 self.shortest_distance_agent_counter[position] += 1
                 self.shortest_distance_agent_direction_counter[(position[0], position[1], direction)] += 1
 

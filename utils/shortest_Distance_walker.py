@@ -16,7 +16,7 @@ class ShortestDistanceWalker:
             new_position = get_new_position(position, new_direction)
 
             dist = self.env.distance_map.get()[handle, new_position[0], new_position[1], new_direction]
-            return new_position, new_direction, dist, RailEnvActions.MOVE_FORWARD
+            return new_position, new_direction, dist, RailEnvActions.MOVE_FORWARD, possible_transitions
         else:
             min_distances = []
             positions = []
@@ -34,28 +34,31 @@ class ShortestDistanceWalker:
                     directions.append(None)
 
         a = self.get_action(handle, min_distances)
-        return positions[a], directions[a], min_distances[a], a + 1
+        return positions[a], directions[a], min_distances[a], a + 1, possible_transitions
 
     def get_action(self, handle, min_distances):
         return np.argmin(min_distances)
 
-    def callback(self, handle, agent, position, direction, action):
+    def callback(self, handle, agent, position, direction, action, possible_transitions):
         pass
 
-    def walk_to_target(self, handle):
+    def walk_to_target(self, handle, max_step=500):
         agent = self.env.agents[handle]
         if agent.position is not None:
             position = agent.position
         else:
             position = agent.initial_position
         direction = agent.direction
-        while (position != agent.target):
-            position, direction, dist, action = self.walk(handle, position, direction)
+
+        step = 0
+        while (position != agent.target) and (step < max_step):
+            position, direction, dist, action, possible_transitions = self.walk(handle, position, direction)
             if position is None:
                 break
-            self.callback(handle, agent, position, direction, action)
+            self.callback(handle, agent, position, direction, action, possible_transitions)
+            step += 1
 
-    def callback_one_step(self, handle, agent, position, direction, action):
+    def callback_one_step(self, handle, agent, position, direction, action, possible_transitions):
         pass
 
     def walk_one_step(self, handle):
@@ -65,9 +68,10 @@ class ShortestDistanceWalker:
         else:
             position = agent.initial_position
         direction = agent.direction
+        possible_transitions = (0, 1, 0, 0)
         if (position != agent.target):
-            new_position, new_direction, dist, action = self.walk(handle, position, direction)
+            new_position, new_direction, dist, action, possible_transitions = self.walk(handle, position, direction)
             if new_position is None:
-                return position, direction, RailEnvActions.STOP_MOVING
-            self.callback_one_step(handle, agent, new_position, new_direction, action)
-        return new_position, new_direction, action
+                return position, direction, RailEnvActions.STOP_MOVING, possible_transitions
+            self.callback_one_step(handle, agent, new_position, new_direction, action, possible_transitions)
+        return new_position, new_direction, action, possible_transitions

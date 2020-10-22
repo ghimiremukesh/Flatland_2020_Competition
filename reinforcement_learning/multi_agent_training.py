@@ -194,8 +194,8 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params, clo
         policy = PPOAgent(state_size, action_size, n_agents)
     if False:
         policy = MultiPolicy(state_size, action_size, n_agents, train_env)
-    if True:
-        policy = DeadLockAvoidanceAgent(train_env,state_size, action_size)
+    if False:
+        policy = DeadLockAvoidanceAgent(train_env, state_size, action_size)
 
     # Load existing policy
     if train_params.load_policy is not None:
@@ -253,6 +253,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params, clo
         reset_timer.start()
         obs, info = train_env.reset(regenerate_rail=True, regenerate_schedule=True)
         policy.reset()
+        deadLockAvoidanceAgent = DeadLockAvoidanceAgent(train_env, state_size, action_size)
         reset_timer.end()
 
         if train_params.render:
@@ -273,20 +274,25 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params, clo
         for step in range(max_steps - 1):
             inference_timer.start()
             policy.start_step()
+            deadLockAvoidanceAgent.start_step()
             for agent in train_env.get_agent_handles():
-                if info['action_required'][agent]:
-                    update_values[agent] = True
-                    action = policy.act(agent,agent_obs[agent], eps=eps_start)
+                action = deadLockAvoidanceAgent.act(agent, None, 0.0)
+                update_values[agent] = False
+                if action != RailEnvActions.STOP_MOVING:
+                    if info['action_required'][agent]:
+                        update_values[agent] = True
+                        action = policy.act(agent, agent_obs[agent], eps=eps_start)
+                        action_count[action] += 1
+                        actions_taken.append(action)
+                    else:
+                        # An action is not required if the train hasn't joined the railway network,
+                        # if it already reached its target, or if is currently malfunctioning.
+                        action = 0
 
-                    action_count[action] += 1
-                    actions_taken.append(action)
-                else:
-                    # An action is not required if the train hasn't joined the railway network,
-                    # if it already reached its target, or if is currently malfunctioning.
-                    update_values[agent] = False
-                    action = 0
                 action_dict.update({agent: action})
             policy.end_step()
+            deadLockAvoidanceAgent.end_step()
+
             inference_timer.end()
 
             # Environment step
@@ -458,22 +464,26 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
         score = 0.0
 
         obs, info = env.reset(regenerate_rail=True, regenerate_schedule=True)
+        deadLockAvoidanceAgent = DeadLockAvoidanceAgent(env, None, None)
 
         final_step = 0
 
         for step in range(max_steps - 1):
+            deadLockAvoidanceAgent.start_step()
             for agent in env.get_agent_handles():
                 if tree_observation.check_is_observation_valid(agent_obs[agent]):
                     agent_obs[agent] = tree_observation.get_normalized_observation(obs[agent], tree_depth=tree_depth,
                                                                                    observation_radius=observation_radius)
 
-                action = 0
-                if info['action_required'][agent]:
-                    if tree_observation.check_is_observation_valid(agent_obs[agent]):
-                        action = policy.act(agent,agent_obs[agent], eps=0.0)
+                action = deadLockAvoidanceAgent.act(agent, None, 0)
+                if action != RailEnvActions.STOP_MOVING:
+                    if info['action_required'][agent]:
+                        if tree_observation.check_is_observation_valid(agent_obs[agent]):
+                            action = policy.act(agent, agent_obs[agent], eps=0.0)
                 action_dict.update({agent: action})
 
             obs, all_rewards, done, info = env.step(action_dict)
+            deadLockAvoidanceAgent.end_step()
 
             for agent in env.get_agent_handles():
                 score += all_rewards[agent]
@@ -505,7 +515,7 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=200000, type=int)
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
                         type=int)
-    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=25, type=int)
+    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=5, type=int)
     parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=200, type=int)
     parser.add_argument("--eps_start", help="max exploration", default=0.1, type=float)
     parser.add_argument("--eps_end", help="min exploration", default=0.0001, type=float)
@@ -525,9 +535,9 @@ if __name__ == "__main__":
     parser.add_argument("--num_threads", help="number of threads PyTorch can use", default=1, type=int)
     parser.add_argument("--load_policy", help="policy filename (reference) to load", default="", type=str)
     parser.add_argument("--use_extra_observation", help="extra observation", default=True, type=bool)
-    parser.add_argument("--max_depth", help="max depth", default=-1, type=int)
+    parser.add_argument("--max_depth", help="max depth", default=1, type=int)
     parser.add_argument("--close_following", help="enable close following feature", default=True, type=bool)
-    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=2, type=int)
+    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=1, type=int)
     parser.add_argument("--render", help="render 1 episode in 100", default=False, type=bool)
 
     training_params = parser.parse_args()
