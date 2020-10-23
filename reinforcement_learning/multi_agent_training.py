@@ -5,18 +5,17 @@ import sys
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from pprint import pprint
-
 import psutil
 from flatland.utils.rendertools import RenderTool
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import torch
+from collections import deque
 
 from flatland.envs.rail_env import RailEnv, RailEnvActions
 from flatland.envs.rail_generators import sparse_rail_generator
 from flatland.envs.schedule_generators import sparse_schedule_generator
 from flatland.envs.observations import TreeObsForRailEnv
-
 from flatland.envs.malfunction_generators import malfunction_from_params, MalfunctionParameters
 from flatland.envs.predictions import ShortestPathPredictorForRailEnv
 
@@ -25,6 +24,7 @@ sys.path.append(str(base_dir))
 
 from utils.timer import Timer
 from utils.observation_utils import normalize_observation
+from utils.fast_tree_obs import FastTreeObs
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
 
 try:
@@ -110,7 +110,30 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
     # Observation builder
     predictor = ShortestPathPredictorForRailEnv(observation_max_path_depth)
-    tree_observation = TreeObsForRailEnv(max_depth=observation_tree_depth, predictor=predictor)
+    if not train_params.use_extra_observation:
+        print("\nUsing standard TreeObs")
+
+        def check_is_observation_valid(observation):
+            return observation
+
+        def get_normalized_observation(observation, tree_depth: int, observation_radius=0):
+            return normalize_observation(observation, tree_depth, observation_radius)
+
+        tree_observation = TreeObsForRailEnv(max_depth=observation_tree_depth, predictor=predictor)
+        tree_observation.check_is_observation_valid = check_is_observation_valid
+        tree_observation.get_normalized_observation = get_normalized_observation
+    else:
+        print("\nUsing FastTreeObs")
+
+        def check_is_observation_valid(observation):
+            return True
+
+        def get_normalized_observation(observation, tree_depth: int, observation_radius=0):
+            return observation
+
+        tree_observation = FastTreeObs(max_depth=observation_tree_depth)
+        tree_observation.check_is_observation_valid = check_is_observation_valid
+        tree_observation.get_normalized_observation = get_normalized_observation
 
     # Setup the environments
     train_env = create_rail_env(train_env_params, tree_observation)
@@ -118,14 +141,18 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     eval_env = create_rail_env(eval_env_params, tree_observation)
     eval_env.reset(regenerate_schedule=True, regenerate_rail=True)
 
+    if not train_params.use_extra_observation:
+        # Calculate the state size given the depth of the tree observation and the number of features
+        n_features_per_node = train_env.obs_builder.observation_dim
+        n_nodes = sum([np.power(4, i) for i in range(observation_tree_depth + 1)])
+        state_size = n_features_per_node * n_nodes
+    else:
+        # Calculate the state size given the depth of the tree observation and the number of features
+        state_size = tree_observation.observation_dim
+
     # Setup renderer
     if train_params.render:
         env_renderer = RenderTool(train_env, gl="PGL")
-
-    # Calculate the state size given the depth of the tree observation and the number of features
-    n_features_per_node = train_env.obs_builder.observation_dim
-    n_nodes = sum([np.power(4, i) for i in range(observation_tree_depth + 1)])
-    state_size = n_features_per_node * n_nodes
 
     # The action space of flatland is 5 discrete actions
     action_size = 5
@@ -144,13 +171,18 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     update_values = [False] * n_agents
 
     # Smoothed values used as target for hyperparameter tuning
-    smoothed_normalized_score = -1.0
     smoothed_eval_normalized_score = -1.0
-    smoothed_completion = 0.0
     smoothed_eval_completion = 0.0
+
+    scores_window = deque(maxlen=checkpoint_interval)  # todo smooth when rendering instead
+    completion_window = deque(maxlen=checkpoint_interval)
 
     # Double Dueling DQN policy
     policy = DDDQNPolicy(state_size, action_size, train_params)
+
+    # Load existing policy
+    if train_params.load_policy is not "":
+        policy.load(train_params.load_policy)
 
     # Loads existing replay buffer
     if restore_replay_buffer:
@@ -166,7 +198,9 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
     hdd = psutil.disk_usage('/')
     if save_replay_buffer and (hdd.free / (2 ** 30)) < 500.0:
-        print("⚠️  Careful! Saving replay buffers will quickly consume a lot of disk space. You have {:.2f}gb left.".format(hdd.free / (2 ** 30)))
+        print(
+            "⚠️  Careful! Saving replay buffers will quickly consume a lot of disk space. You have {:.2f}gb left.".format(
+                hdd.free / (2 ** 30)))
 
     # TensorBoard writer
     writer = SummaryWriter()
@@ -177,14 +211,15 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     training_timer = Timer()
     training_timer.start()
 
-    print("\n🚉 Training {} trains on {}x{} grid for {} episodes, evaluating on {} episodes every {} episodes. Training id '{}'.\n".format(
-        train_env.get_num_agents(),
-        x_dim, y_dim,
-        n_episodes,
-        n_eval_episodes,
-        checkpoint_interval,
-        training_id
-    ))
+    print(
+        "\n🚉 Training {} trains on {}x{} grid for {} episodes, evaluating on {} episodes every {} episodes. Training id '{}'.\n".format(
+            train_env.get_num_agents(),
+            x_dim, y_dim,
+            n_episodes,
+            n_eval_episodes,
+            checkpoint_interval,
+            training_id
+        ))
 
     for episode_idx in range(n_episodes + 1):
         step_timer = Timer()
@@ -207,8 +242,9 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Build initial agent-specific observations
         for agent in train_env.get_agent_handles():
-            if obs[agent]:
-                agent_obs[agent] = normalize_observation(obs[agent], observation_tree_depth, observation_radius=observation_radius)
+            if tree_observation.check_is_observation_valid(obs[agent]):
+                agent_obs[agent] = tree_observation.get_normalized_observation(obs[agent], observation_tree_depth,
+                                                                               observation_radius=observation_radius)
                 agent_prev_obs[agent] = agent_obs[agent].copy()
 
         # Run episode
@@ -217,6 +253,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             for agent in train_env.get_agent_handles():
                 if info['action_required'][agent]:
                     update_values[agent] = True
+
                     action = policy.act(agent_obs[agent], eps=eps_start)
 
                     action_count[action] += 1
@@ -255,9 +292,11 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                     agent_prev_action[agent] = action_dict[agent]
 
                 # Preprocess the new observations
-                if next_obs[agent]:
+                if tree_observation.check_is_observation_valid(next_obs[agent]):
                     preproc_timer.start()
-                    agent_obs[agent] = normalize_observation(next_obs[agent], observation_tree_depth, observation_radius=observation_radius)
+                    agent_obs[agent] = tree_observation.get_normalized_observation(next_obs[agent],
+                                                                                   observation_tree_depth,
+                                                                                   observation_radius=observation_radius)
                     preproc_timer.end()
 
                 score += all_rewards[agent]
@@ -274,12 +313,12 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         tasks_finished = sum(done[idx] for idx in train_env.get_agent_handles())
         completion = tasks_finished / max(1, train_env.get_num_agents())
         normalized_score = score / (max_steps * train_env.get_num_agents())
-        action_probs = action_count / np.sum(action_count)
-        action_count = [1] * action_size
+        action_probs = action_count / max(1, np.sum(action_count))
 
-        smoothing = 0.99
-        smoothed_normalized_score = smoothed_normalized_score * smoothing + normalized_score * (1.0 - smoothing)
-        smoothed_completion = smoothed_completion * smoothing + completion * (1.0 - smoothing)
+        scores_window.append(normalized_score)
+        completion_window.append(completion)
+        smoothed_normalized_score = np.mean(scores_window)
+        smoothed_completion = np.mean(completion_window)
 
         # Print logs
         if episode_idx % checkpoint_interval == 0:
@@ -291,12 +330,15 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             if train_params.render:
                 env_renderer.close_window()
 
+            # reset action count
+            action_count = [0] * action_size
+
         print(
             '\r🚂 Episode {}'
-            '\t 🏆 Score: {:.3f}'
-            ' Avg: {:.3f}'
-            '\t 💯 Done: {:.2f}%'
-            ' Avg: {:.2f}%'
+            '\t 🏆 Score: {:7.3f}'
+            ' Avg: {:7.3f}'
+            '\t 💯 Done: {:6.2f}%'
+            ' Avg: {:6.2f}%'
             '\t 🎲 Epsilon: {:.3f} '
             '\t 🔀 Action Probs: {}'.format(
                 episode_idx,
@@ -310,7 +352,11 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Evaluate policy and log results at some interval
         if episode_idx % checkpoint_interval == 0 and n_eval_episodes > 0:
-            scores, completions, nb_steps_eval = eval_policy(eval_env, policy, train_params, obs_params)
+            scores, completions, nb_steps_eval = eval_policy(eval_env,
+                                                             tree_observation,
+                                                             policy,
+                                                             train_params,
+                                                             obs_params)
 
             writer.add_scalar("evaluation/scores_min", np.min(scores), episode_idx)
             writer.add_scalar("evaluation/scores_max", np.max(scores), episode_idx)
@@ -329,7 +375,8 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             writer.add_histogram("evaluation/nb_steps", np.array(nb_steps_eval), episode_idx)
 
             smoothing = 0.9
-            smoothed_eval_normalized_score = smoothed_eval_normalized_score * smoothing + np.mean(scores) * (1.0 - smoothing)
+            smoothed_eval_normalized_score = smoothed_eval_normalized_score * smoothing + np.mean(scores) * (
+                    1.0 - smoothing)
             smoothed_eval_completion = smoothed_eval_completion * smoothing + np.mean(completions) * (1.0 - smoothing)
             writer.add_scalar("evaluation/smoothed_score", smoothed_eval_normalized_score, episode_idx)
             writer.add_scalar("evaluation/smoothed_completion", smoothed_eval_completion, episode_idx)
@@ -367,7 +414,7 @@ def format_action_prob(action_probs):
     return buffer
 
 
-def eval_policy(env, policy, train_params, obs_params):
+def eval_policy(env, tree_observation, policy, train_params, obs_params):
     n_eval_episodes = train_params.n_evaluation_episodes
     max_steps = env._max_episode_steps
     tree_depth = obs_params.observation_tree_depth
@@ -388,12 +435,14 @@ def eval_policy(env, policy, train_params, obs_params):
 
         for step in range(max_steps - 1):
             for agent in env.get_agent_handles():
-                if obs[agent]:
-                    agent_obs[agent] = normalize_observation(obs[agent], tree_depth=tree_depth, observation_radius=observation_radius)
+                if tree_observation.check_is_observation_valid(agent_obs[agent]):
+                    agent_obs[agent] = tree_observation.get_normalized_observation(obs[agent], tree_depth=tree_depth,
+                                                                                   observation_radius=observation_radius)
 
                 action = 0
                 if info['action_required'][agent]:
-                    action = policy.act(agent_obs[agent], eps=0.0)
+                    if tree_observation.check_is_observation_valid(agent_obs[agent]):
+                        action = policy.act(agent_obs[agent], eps=0.0)
                 action_dict.update({agent: action})
 
             obs, all_rewards, done, info = env.step(action_dict)
@@ -424,8 +473,9 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=2500, type=int)
     parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=0, type=int)
-    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0, type=int)
-    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=25, type=int)
+    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
+                        type=int)
+    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=50, type=int)
     parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=100, type=int)
     parser.add_argument("--eps_start", help="max exploration", default=1.0, type=float)
     parser.add_argument("--eps_end", help="min exploration", default=0.01, type=float)
@@ -433,7 +483,8 @@ if __name__ == "__main__":
     parser.add_argument("--buffer_size", help="replay buffer size", default=int(1e5), type=int)
     parser.add_argument("--buffer_min_size", help="min buffer size to start training", default=0, type=int)
     parser.add_argument("--restore_replay_buffer", help="replay buffer to restore", default="", type=str)
-    parser.add_argument("--save_replay_buffer", help="save replay buffer at each evaluation interval", default=False, type=bool)
+    parser.add_argument("--save_replay_buffer", help="save replay buffer at each evaluation interval", default=False,
+                        type=bool)
     parser.add_argument("--batch_size", help="minibatch size", default=128, type=int)
     parser.add_argument("--gamma", help="discount factor", default=0.99, type=float)
     parser.add_argument("--tau", help="soft update of target parameters", default=1e-3, type=float)
@@ -442,9 +493,12 @@ if __name__ == "__main__":
     parser.add_argument("--update_every", help="how often to update the network", default=8, type=int)
     parser.add_argument("--use_gpu", help="use GPU if available", default=False, type=bool)
     parser.add_argument("--num_threads", help="number of threads PyTorch can use", default=1, type=int)
-    parser.add_argument("--render", help="render 1 episode in 100", default=False, type=bool)
-    training_params = parser.parse_args()
+    parser.add_argument("--render", help="render 1 episode in 100", action='store_true')
+    parser.add_argument("--load_policy", help="policy filename (reference) to load", default="", type=str)
+    parser.add_argument("--use_extra_observation", help="extra observation", action='store_true')
+    parser.add_argument("--max_depth", help="max depth", default=2, type=int)
 
+    training_params = parser.parse_args()
     env_params = [
         {
             # Test_0
@@ -482,14 +536,16 @@ if __name__ == "__main__":
     ]
 
     obs_params = {
-        "observation_tree_depth": 2,
+        "observation_tree_depth": training_params.max_depth,
         "observation_radius": 10,
         "observation_max_path_depth": 30
     }
 
+
     def check_env_config(id):
         if id >= len(env_params) or id < 0:
-            print("\n🛑 Invalid environment configuration, only Test_0 to Test_{} are supported.".format(len(env_params) - 1))
+            print("\n🛑 Invalid environment configuration, only Test_0 to Test_{} are supported.".format(
+                len(env_params) - 1))
             exit(1)
 
 
@@ -498,6 +554,10 @@ if __name__ == "__main__":
 
     training_env_params = env_params[training_params.training_env_config]
     evaluation_env_params = env_params[training_params.evaluation_env_config]
+
+    # FIXME hard-coded for sweep search
+    # see https://wb-forum.slack.com/archives/CL4V2QE59/p1602931982236600 to implement properly
+    # training_params.use_extra_observation = True
 
     print("\nTraining parameters:")
     pprint(vars(training_params))
@@ -509,4 +569,5 @@ if __name__ == "__main__":
     pprint(obs_params)
 
     os.environ["OMP_NUM_THREADS"] = str(training_params.num_threads)
-    train_agent(training_params, Namespace(**training_env_params), Namespace(**evaluation_env_params), Namespace(**obs_params))
+    train_agent(training_params, Namespace(**training_env_params), Namespace(**evaluation_env_params),
+                Namespace(**obs_params))
