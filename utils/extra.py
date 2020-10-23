@@ -1,11 +1,11 @@
-# import matplotlib.pyplot as plt
 import numpy as np
+
 from flatland.core.env_observation_builder import ObservationBuilder
 from flatland.core.grid.grid4_utils import get_new_position
-from flatland.envs.rail_env import RailEnvActions, RailAgentStatus, RailEnv
+from flatland.envs.agent_utils import RailAgentStatus
+from flatland.envs.rail_env import RailEnvActions, fast_argmax, fast_count_nonzero
 
 from reinforcement_learning.policy import Policy
-from utils.shortest_Distance_walker import ShortestDistanceWalker
 
 
 class ExtraPolicy(Policy):
@@ -52,53 +52,11 @@ class ExtraPolicy(Policy):
         pass
 
 
-def fast_argmax(possible_transitions: (int, int, int, int)) -> bool:
-    if possible_transitions[0] == 1:
-        return 0
-    if possible_transitions[1] == 1:
-        return 1
-    if possible_transitions[2] == 1:
-        return 2
-    return 3
-
-
-def fast_count_nonzero(possible_transitions: (int, int, int, int)):
-    return possible_transitions[0] + possible_transitions[1] + possible_transitions[2] + possible_transitions[3]
-
-
 class Extra(ObservationBuilder):
 
     def __init__(self, max_depth):
         self.max_depth = max_depth
-        self.observation_dim = 62
-
-    def shortest_distance_mapper(self):
-
-        class MyWalker(ShortestDistanceWalker):
-            def __init__(self, env: RailEnv):
-                super().__init__(env)
-                self.shortest_distance_agent_counter = np.zeros((self.env.height, self.env.width), dtype=int)
-                self.shortest_distance_agent_direction_counter = np.zeros((self.env.height, self.env.width, 4),
-                                                                          dtype=int)
-
-            def getData(self):
-                return self.shortest_distance_agent_counter, self.shortest_distance_agent_direction_counter
-
-            def callback(self, handle, agent, position, direction, action, possible_transitions):
-                self.shortest_distance_agent_counter[position] += 1
-                self.shortest_distance_agent_direction_counter[(position[0], position[1], direction)] += 1
-
-        my_walker = MyWalker(self.env)
-        for handle in range(self.env.get_num_agents()):
-            agent = self.env.agents[handle]
-            if agent.status <= RailAgentStatus.ACTIVE:
-                my_walker.walk_to_target(handle)
-
-        self.shortest_distance_agent_counter, self.shortest_distance_agent_direction_counter = my_walker.getData()
-
-        # plt.imshow(self.shortest_distance_agent_counter)
-        # plt.colorbar()
-        # plt.show()
+        self.observation_dim = 26
 
     def build_data(self):
         if self.env is not None:
@@ -109,13 +67,6 @@ class Extra(ObservationBuilder):
         self.debug_render_path_list = []
         if self.env is not None:
             self.find_all_cell_where_agent_can_choose()
-            self.agent_positions = np.zeros((self.env.height, self.env.width), dtype=int) - 1
-            self.history_direction = np.zeros((self.env.height, self.env.width), dtype=int) - 1
-            self.history_same_direction_cnt = np.zeros((self.env.height, self.env.width), dtype=int)
-            self.history_time = np.zeros((self.env.height, self.env.width), dtype=int) - 1
-
-        self.shortest_distance_agent_counter = None
-        self.shortest_distance_agent_direction_counter = None
 
     def find_all_cell_where_agent_can_choose(self):
 
@@ -238,39 +189,32 @@ class Extra(ObservationBuilder):
             return 2
         return 3
 
-    def _explore(self, handle, new_position, new_direction, distance_map, depth):
+    def _explore(self, handle, new_position, new_direction, depth=0):
 
-        may_has_opp_agent = 0
-        has_opp_agent = -1
-        has_other_target = 0
-        has_target = 0
+        has_opp_agent = 0
+        has_same_agent = 0
+        has_switch = 0
         visited = []
 
-        new_cell_dist = np.inf
-
         # stop exploring (max_depth reached)
-        if depth > self.max_depth:
-            return has_opp_agent, may_has_opp_agent, has_other_target, has_target, visited, new_cell_dist
+        if depth >= self.max_depth:
+            return has_opp_agent, has_same_agent, has_switch, visited
 
         # max_explore_steps = 100
         cnt = 0
         while cnt < 100:
             cnt += 1
-            has_other_target = int(new_position in self.agent_targets)
-            new_cell_dist = min(new_cell_dist, distance_map[handle,
-                                                            new_position[0], new_position[1],
-                                                            new_direction])
 
             visited.append(new_position)
-            has_target = int(self.env.agents[handle].target == new_position)
-            opp_a = self.agent_positions[new_position]
+            opp_a = self.env.agent_positions[new_position]
             if opp_a != -1 and opp_a != handle:
-                possible_transitions = self.env.rail.get_transitions(*new_position, new_direction)
-                if possible_transitions[self.env.agents[opp_a].direction] < 1:
+                if self.env.agents[opp_a].direction != new_direction:
                     # opp agent found
-                    has_opp_agent = opp_a
-                    may_has_opp_agent = 1
-                    return has_opp_agent, may_has_opp_agent, has_other_target, has_target, visited, new_cell_dist
+                    has_opp_agent = 1
+                    return has_opp_agent, has_same_agent, has_switch, visited
+                else:
+                    has_same_agent = 1
+                    return has_opp_agent, has_same_agent, has_switch, visited
 
             # convert one-hot encoding to 0,1,2,3
             agents_on_switch, \
@@ -278,40 +222,32 @@ class Extra(ObservationBuilder):
             agents_near_to_switch_all, \
             agents_on_switch_all = \
                 self.check_agent_descision(new_position, new_direction)
-
             if agents_near_to_switch:
-                return has_opp_agent, may_has_opp_agent, has_other_target, has_target, visited, new_cell_dist
+                return has_opp_agent, has_same_agent, has_switch, visited
 
             possible_transitions = self.env.rail.get_transitions(*new_position, new_direction)
-            if fast_count_nonzero(possible_transitions) > 1:
-                may_has_opp_agent_loop = 1
+            if agents_on_switch:
+                f = 0
                 for dir_loop in range(4):
                     if possible_transitions[dir_loop] == 1:
-                        hoa, mhoa, hot, ht, v, min_cell_dist = self._explore(handle,
-                                                                             get_new_position(new_position,
-                                                                                              dir_loop),
-                                                                             dir_loop,
-                                                                             distance_map,
-                                                                             depth + 1)
-
-                        has_opp_agent = max(has_opp_agent, hoa)
-                        may_has_opp_agent_loop = min(may_has_opp_agent_loop, mhoa)
-                        has_other_target = max(has_other_target, hot)
-                        has_target = max(has_target, ht)
+                        f += 1
+                        hoa, hsa, hs, v = self._explore(handle,
+                                                        get_new_position(new_position, dir_loop),
+                                                        dir_loop,
+                                                        depth + 1)
                         visited.append(v)
-                        new_cell_dist = min(min_cell_dist, new_cell_dist)
-                return has_opp_agent, may_has_opp_agent_loop, has_other_target, has_target, visited, new_cell_dist
+                        has_opp_agent += hoa
+                        has_same_agent += hsa
+                        has_switch += hs
+                f = max(f, 1.0)
+                return has_opp_agent / f, has_same_agent / f, has_switch / f, visited
             else:
                 new_direction = fast_argmax(possible_transitions)
                 new_position = get_new_position(new_position, new_direction)
 
-        return has_opp_agent, may_has_opp_agent, has_other_target, has_target, visited, new_cell_dist
+        return has_opp_agent, has_same_agent, has_switch, visited
 
     def get(self, handle):
-
-        if (handle == 0):
-            self.updateSharedData()
-
         # all values are [0,1]
         # observation[0]  : 1 path towards target (direction 0) / otherwise 0 -> path is longer or there is no path
         # observation[1]  : 1 path towards target (direction 1) / otherwise 0 -> path is longer or there is no path
@@ -319,10 +255,26 @@ class Extra(ObservationBuilder):
         # observation[3]  : 1 path towards target (direction 3) / otherwise 0 -> path is longer or there is no path
         # observation[4]  : int(agent.status == RailAgentStatus.READY_TO_DEPART)
         # observation[5]  : int(agent.status == RailAgentStatus.ACTIVE)
-        # observation[6] : If there is a path with step (direction 0) and there is a agent with opposite direction -> 1
-        # observation[7] : If there is a path with step (direction 1) and there is a agent with opposite direction -> 1
-        # observation[8] : If there is a path with step (direction 2) and there is a agent with opposite direction -> 1
-        # observation[9] : If there is a path with step (direction 3) and there is a agent with opposite direction -> 1
+        # observation[6]  : int(agent.status == RailAgentStatus.DONE or agent.status == RailAgentStatus.DONE_REMOVED)
+        # observation[7]  : current agent is located at a switch, where it can take a routing decision
+        # observation[8]  : current agent is located at a cell, where it has to take a stop-or-go decision
+        # observation[9]  : current agent is located one step before/after a switch
+        # observation[10] : 1 if there is a path (track/branch) otherwise 0 (direction 0)
+        # observation[11] : 1 if there is a path (track/branch) otherwise 0 (direction 1)
+        # observation[12] : 1 if there is a path (track/branch) otherwise 0 (direction 2)
+        # observation[13] : 1 if there is a path (track/branch) otherwise 0 (direction 3)
+        # observation[14] : If there is a path with step (direction 0) and there is a agent with opposite direction -> 1
+        # observation[15] : If there is a path with step (direction 1) and there is a agent with opposite direction -> 1
+        # observation[16] : If there is a path with step (direction 2) and there is a agent with opposite direction -> 1
+        # observation[17] : If there is a path with step (direction 3) and there is a agent with opposite direction -> 1
+        # observation[18] : If there is a path with step (direction 0) and there is a agent with same direction -> 1
+        # observation[19] : If there is a path with step (direction 1) and there is a agent with same direction -> 1
+        # observation[20] : If there is a path with step (direction 2) and there is a agent with same direction -> 1
+        # observation[21] : If there is a path with step (direction 3) and there is a agent with same direction -> 1
+        # observation[22] : If there is a switch on the path which agent can not use -> 1
+        # observation[23] : If there is a switch on the path which agent can not use -> 1
+        # observation[24] : If there is a switch on the path which agent can not use -> 1
+        # observation[25] : If there is a switch on the path which agent can not use -> 1
 
         observation = np.zeros(self.observation_dim)
         visited = []
@@ -331,11 +283,12 @@ class Extra(ObservationBuilder):
         agent_done = False
         if agent.status == RailAgentStatus.READY_TO_DEPART:
             agent_virtual_position = agent.initial_position
-            observation[0] = 1
+            observation[4] = 1
         elif agent.status == RailAgentStatus.ACTIVE:
             agent_virtual_position = agent.position
-            observation[1] = 1
+            observation[5] = 1
         else:
+            observation[6] = 1
             agent_virtual_position = (-1, -1)
             agent_done = True
 
@@ -356,90 +309,30 @@ class Extra(ObservationBuilder):
                     new_cell_dist = distance_map[handle,
                                                  new_position[0], new_position[1],
                                                  branch_direction]
-
-                    has_opp_agent, \
-                    may_has_opp_agent, \
-                    has_other_target, \
-                    has_target, \
-                    v, \
-                    min_cell_dist = self._explore(handle,
-                                                  new_position,
-                                                  branch_direction,
-                                                  distance_map,
-                                                  0)
                     if not (np.math.isinf(new_cell_dist) and np.math.isinf(current_cell_dist)):
-                        observation[2 + dir_loop] = int(new_cell_dist < current_cell_dist)
+                        observation[dir_loop] = int(new_cell_dist < current_cell_dist)
 
-                    new_cell_dist = min(min_cell_dist, new_cell_dist)
-                    if not (np.math.isinf(new_cell_dist) and not np.math.isinf(current_cell_dist)):
-                        observation[6 + dir_loop] = int(new_cell_dist < current_cell_dist)
-
+                    has_opp_agent, has_same_agent, has_switch, v = self._explore(handle, new_position, branch_direction)
                     visited.append(v)
 
-                    observation[10 + dir_loop] = int(has_opp_agent > -1)
-                    observation[14 + dir_loop] = may_has_opp_agent
-                    observation[18 + dir_loop] = has_other_target
-                    observation[22 + dir_loop] = has_target
-                    observation[26 + dir_loop] = self.getHistorySameDirection(new_position, branch_direction)
-                    observation[30 + dir_loop] = self.getHistoryOppositeDirection(new_position, branch_direction)
-                    observation[34 + dir_loop] = self.getTemporalDistance(new_position)
-                    observation[38 + dir_loop] = self.getFlowDensity(new_position)
-                    observation[42 + dir_loop] = self.getDensitySameDirection(new_position, branch_direction)
-                    observation[44 + dir_loop] = self.getDensity(new_position)
-                    observation[48 + dir_loop] = int(not np.math.isinf(new_cell_dist))
-                    observation[52 + dir_loop] = 1
-                    observation[54 + dir_loop] = int(has_opp_agent > handle)
+                    observation[10 + dir_loop] = 1
+                    observation[14 + dir_loop] = has_opp_agent
+                    observation[18 + dir_loop] = has_same_agent
+                    observation[22 + dir_loop] = has_switch
+
+        agents_on_switch, \
+        agents_near_to_switch, \
+        agents_near_to_switch_all, \
+        agents_on_switch_all = \
+            self.check_agent_descision(agent_virtual_position, agent.direction)
+        observation[7] = int(agents_on_switch)
+        observation[8] = int(agents_near_to_switch)
+        observation[9] = int(agents_near_to_switch_all)
 
         self.env.dev_obs_dict.update({handle: visited})
 
         return observation
 
-    def getDensitySameDirection(self, position, direction):
-        val = self.shortest_distance_agent_direction_counter[(position[0], position[1], direction)]
-        return val / self.env.get_num_agents()
-
-    def getDensity(self, position):
-        val = self.shortest_distance_agent_counter[position]
-        return val / self.env.get_num_agents()
-
-    def getHistorySameDirection(self, position, direction):
-        val = self.history_direction[position]
-        if val == -1:
-            return -1
-        if val == direction:
-            return 1
-        return 0
-
-    def getHistoryOppositeDirection(self, position, direction):
-        val = self.getHistorySameDirection(position, direction)
-        if val == -1:
-            return -1
-        return 1 - val
-
-    def getTemporalDistance(self, position):
-        if self.history_time[position] == -1:
-            return -1
-        val = self.env._elapsed_steps - self.history_time[position]
-        if val < 1:
-            return 0
-        return 1 + np.log(1 + val)
-
-    def getFlowDensity(self, position):
-        val = self.env._elapsed_steps - self.history_same_direction_cnt[position]
-        return 1 + np.log(1 + val)
-
-    def updateSharedData(self):
-        self.shortest_distance_mapper()
-        self.agent_positions = np.zeros((self.env.height, self.env.width), dtype=int) - 1
-        self.agent_targets = []
-        for a in np.arange(self.env.get_num_agents()):
-            if self.env.agents[a].status == RailAgentStatus.ACTIVE:
-                self.agent_targets.append(self.env.agents[a].target)
-                if self.env.agents[a].position is not None:
-                    self.agent_positions[self.env.agents[a].position] = a
-                    if self.history_direction[self.env.agents[a].position] == self.env.agents[a].direction:
-                        self.history_same_direction_cnt[self.env.agents[a].position] += 1
-                    else:
-                        self.history_same_direction_cnt[self.env.agents[a].position] = 0
-                    self.history_direction[self.env.agents[a].position] = self.env.agents[a].direction
-                    self.history_time[self.env.agents[a].position] = self.env._elapsed_steps
+    @staticmethod
+    def agent_can_choose(observation):
+        return observation[7] == 1 or observation[8] == 1

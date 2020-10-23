@@ -117,6 +117,7 @@ class DeadLockAvoidanceAgent(Policy):
                 my_walker.walk_to_target(handle)
         shortest_distance_agent_map, full_shortest_distance_agent_map = my_walker.getData()
 
+        delta_data = np.copy(full_shortest_distance_agent_map)
         self.agent_can_move = {}
         agent_positions_map = (agent_positions > -1).astype(int)
         for handle in range(self.env.get_num_agents()):
@@ -129,6 +130,7 @@ class DeadLockAvoidanceAgent(Policy):
             for opp_a in opp_agents:
                 opp = full_shortest_distance_agent_map[opp_a]
                 delta = ((delta - opp - agent_positions_map) > 0).astype(int)
+                delta_data[handle] += np.clip(delta,0,1)
                 if (np.sum(delta) < 3):
                     next_step_ok = False
 
@@ -140,7 +142,7 @@ class DeadLockAvoidanceAgent(Policy):
             b = np.ceil(self.env.get_num_agents() / a)
             for handle in range(self.env.get_num_agents()):
                 plt.subplot(a, b, handle + 1)
-                plt.imshow(shortest_distance_agent_map[handle])
+                plt.imshow(delta_data[handle])
             # plt.colorbar()
             plt.show(block=False)
             plt.pause(0.01)
