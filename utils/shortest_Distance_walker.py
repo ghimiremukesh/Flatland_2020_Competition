@@ -42,14 +42,24 @@ class ShortestDistanceWalker:
     def callback(self, handle, agent, position, direction, action, possible_transitions):
         pass
 
-    def walk_to_target(self, handle, max_step=500):
+    def get_agent_position_and_direction(self, handle):
         agent = self.env.agents[handle]
         if agent.position is not None:
             position = agent.position
         else:
             position = agent.initial_position
         direction = agent.direction
+        return position, direction
 
+    def walk_to_target(self, handle, position=None, direction=None, max_step=500):
+        if position is None and direction is None:
+            position, direction = self.get_agent_position_and_direction(handle)
+        elif position is None:
+            position, _ = self.get_agent_position_and_direction(handle)
+        elif direction is None:
+            _, direction = self.get_agent_position_and_direction(handle)
+
+        agent = self.env.agents[handle]
         step = 0
         while (position != agent.target) and (step < max_step):
             position, direction, dist, action, possible_transitions = self.walk(handle, position, direction)

@@ -9,14 +9,14 @@ from reinforcement_learning.policy import Policy
 from reinforcement_learning.ppo.model import PolicyNetwork
 from reinforcement_learning.ppo.replay_memory import Episode, ReplayBuffer
 
-BUFFER_SIZE = 32_000
-BATCH_SIZE = 4096
-GAMMA = 0.8
+BUFFER_SIZE = 128_000
+BATCH_SIZE = 8192
+GAMMA = 0.95
 LR = 0.5e-4
 CLIP_FACTOR = .005
 UPDATE_EVERY = 30
 
-device = torch.device("cpu")  # "cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class PPOAgent(Policy):

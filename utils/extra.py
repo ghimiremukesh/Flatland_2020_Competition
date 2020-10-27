@@ -1,11 +1,11 @@
 import numpy as np
-
 from flatland.core.env_observation_builder import ObservationBuilder
 from flatland.core.grid.grid4_utils import get_new_position
 from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.rail_env import RailEnvActions, fast_argmax, fast_count_nonzero
 
 from reinforcement_learning.policy import Policy
+from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent, DeadlockAvoidanceShortestDistanceWalker
 
 
 class ExtraPolicy(Policy):
@@ -56,11 +56,14 @@ class Extra(ObservationBuilder):
 
     def __init__(self, max_depth):
         self.max_depth = max_depth
-        self.observation_dim = 26
+        self.observation_dim = 31
 
     def build_data(self):
+        self.dead_lock_avoidance_agent = None
         if self.env is not None:
             self.env.dev_obs_dict = {}
+            self.dead_lock_avoidance_agent = DeadLockAvoidanceAgent(self.env, None, None)
+
         self.switches = {}
         self.switches_neighbours = {}
         self.debug_render_list = []
@@ -248,6 +251,10 @@ class Extra(ObservationBuilder):
         return has_opp_agent, has_same_agent, has_switch, visited
 
     def get(self, handle):
+
+        if handle == 0:
+            self.dead_lock_avoidance_agent.start_step()
+
         # all values are [0,1]
         # observation[0]  : 1 path towards target (direction 0) / otherwise 0 -> path is longer or there is no path
         # observation[1]  : 1 path towards target (direction 1) / otherwise 0 -> path is longer or there is no path
@@ -275,6 +282,11 @@ class Extra(ObservationBuilder):
         # observation[23] : If there is a switch on the path which agent can not use -> 1
         # observation[24] : If there is a switch on the path which agent can not use -> 1
         # observation[25] : If there is a switch on the path which agent can not use -> 1
+        # observation[26] : Is there a deadlock signal on shortest path walk(s) (direction 0)-> 1
+        # observation[27] : Is there a deadlock signal on shortest path walk(s) (direction 1)-> 1
+        # observation[28] : Is there a deadlock signal on shortest path walk(s) (direction 2)-> 1
+        # observation[29] : Is there a deadlock signal on shortest path walk(s) (direction 3)-> 1
+        # observation[30] : Is there a deadlock signal on shortest path walk(s) (current position check)-> 1
 
         observation = np.zeros(self.observation_dim)
         visited = []
@@ -320,6 +332,21 @@ class Extra(ObservationBuilder):
                     observation[18 + dir_loop] = has_same_agent
                     observation[22 + dir_loop] = has_switch
 
+                    _, full_shortest_distance_agent_map = self.dead_lock_avoidance_agent.shortest_distance_walker.getData()
+                    opp_agents = self.dead_lock_avoidance_agent.shortest_distance_walker.opp_agent_map.get(handle, [])
+                    local_walker = DeadlockAvoidanceShortestDistanceWalker(
+                        self.env,
+                        self.dead_lock_avoidance_agent.shortest_distance_walker.agent_positions,
+                        self.dead_lock_avoidance_agent.shortest_distance_walker.switches)
+                    local_walker.walk_to_target(handle, new_position, branch_direction)
+                    shortest_distance_agent_map, _ = self.dead_lock_avoidance_agent.shortest_distance_walker.getData()
+                    my_shortest_path_to_check = shortest_distance_agent_map[handle]
+                    next_step_ok = self.dead_lock_avoidance_agent.check_agent_can_move(my_shortest_path_to_check,
+                                                                                       opp_agents,
+                                                                                       full_shortest_distance_agent_map)
+                    if next_step_ok:
+                        observation[26 + dir_loop] = 1
+
         agents_on_switch, \
         agents_near_to_switch, \
         agents_near_to_switch_all, \
@@ -328,6 +355,8 @@ class Extra(ObservationBuilder):
         observation[7] = int(agents_on_switch)
         observation[8] = int(agents_near_to_switch)
         observation[9] = int(agents_near_to_switch_all)
+
+        observation[30] = int(self.dead_lock_avoidance_agent.act(handle, None, 0) == RailEnvActions.STOP_MOVING)
 
         self.env.dev_obs_dict.update({handle: visited})
 
