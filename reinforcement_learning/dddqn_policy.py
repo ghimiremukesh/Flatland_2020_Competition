@@ -22,7 +22,7 @@ class DDDQNPolicy(Policy):
         self.state_size = state_size
         self.action_size = action_size
         self.double_dqn = True
-        self.hidsize = 1
+        self.hidsize = 128
 
         if not evaluation_mode:
             self.hidsize = parameters.hidden_size
@@ -34,7 +34,7 @@ class DDDQNPolicy(Policy):
             self.gamma = parameters.gamma
             self.buffer_min_size = parameters.buffer_min_size
 
-        # Device
+            # Device
         if parameters.use_gpu and torch.cuda.is_available():
             self.device = torch.device("cuda:0")
             # print("🐇 Using GPU")
@@ -43,7 +43,8 @@ class DDDQNPolicy(Policy):
             # print("🐢 Using CPU")
 
         # Q-Network
-        self.qnetwork_local = DuelingQNetwork(state_size, action_size, hidsize1=self.hidsize, hidsize2=self.hidsize).to(self.device)
+        self.qnetwork_local = DuelingQNetwork(state_size, action_size, hidsize1=self.hidsize, hidsize2=self.hidsize).to(
+            self.device)
 
         if not evaluation_mode:
             self.qnetwork_target = copy.deepcopy(self.qnetwork_local)
@@ -119,15 +120,22 @@ class DDDQNPolicy(Policy):
         torch.save(self.qnetwork_target.state_dict(), filename + ".target")
 
     def load(self, filename):
-        if os.path.exists(filename + ".local") and os.path.exists(filename + ".target"):
-            self.qnetwork_local.load_state_dict(torch.load(filename + ".local"))
-            self.qnetwork_target.load_state_dict(torch.load(filename + ".target"))
-        else:
-            if os.path.exists(filename):
-                self.qnetwork_local.load_state_dict(torch.load(filename))
-                self.qnetwork_target.load_state_dict(torch.load(filename))
+        try:
+            if os.path.exists(filename + ".local") and os.path.exists(filename + ".target"):
+                self.qnetwork_local.load_state_dict(torch.load(filename + ".local"))
+                print("qnetwork_local loaded ('{}')".format(filename + ".local"))
+                if self.evaluation_mode:
+                    self.qnetwork_target = copy.deepcopy(self.qnetwork_local)
+                else:
+                    self.qnetwork_target.load_state_dict(torch.load(filename + ".target"))
+                    print("qnetwork_target loaded ('{}' )".format(filename + ".target"))
             else:
-                raise FileNotFoundError("Couldn't load policy from: '{}', '{}'".format(filename + ".local", filename + ".target"))
+                print(">> Checkpoint not found, using untrained policy! ('{}', '{}')".format(filename + ".local",
+                                                                                             filename + ".target"))
+        except Exception as exc:
+            print(exc)
+            print("Couldn't load policy from, using untrained policy! ('{}', '{}')".format(filename + ".local",
+                                                                                           filename + ".target"))
 
     def save_replay_buffer(self, filename):
         memory = self.memory.memory
