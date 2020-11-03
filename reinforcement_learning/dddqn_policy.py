@@ -124,9 +124,7 @@ class DDDQNPolicy(Policy):
             if os.path.exists(filename + ".local") and os.path.exists(filename + ".target"):
                 self.qnetwork_local.load_state_dict(torch.load(filename + ".local"))
                 print("qnetwork_local loaded ('{}')".format(filename + ".local"))
-                if self.evaluation_mode:
-                    self.qnetwork_target = copy.deepcopy(self.qnetwork_local)
-                else:
+                if not self.evaluation_mode:
                     self.qnetwork_target.load_state_dict(torch.load(filename + ".target"))
                     print("qnetwork_target loaded ('{}' )".format(filename + ".target"))
             else:

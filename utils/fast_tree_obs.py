@@ -2,8 +2,9 @@ import numpy as np
 from flatland.core.env_observation_builder import ObservationBuilder
 from flatland.core.grid.grid4_utils import get_new_position
 from flatland.envs.agent_utils import RailAgentStatus
-from flatland.envs.rail_env import fast_count_nonzero, fast_argmax
+from flatland.envs.rail_env import fast_count_nonzero, fast_argmax, RailEnvActions
 
+from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
 """
 LICENCE for the FastTreeObs Observation Builder  
@@ -17,11 +18,12 @@ Author: Adrian Egli (adrian.egli@gmail.com)
 [Researchgate](https://www.linkedin.com/in/adrian-egli-733a9544/)
 """
 
+
 class FastTreeObs(ObservationBuilder):
 
     def __init__(self, max_depth):
         self.max_depth = max_depth
-        self.observation_dim = 27
+        self.observation_dim = 30
 
     def build_data(self):
         if self.env is not None:
@@ -32,6 +34,9 @@ class FastTreeObs(ObservationBuilder):
         self.debug_render_path_list = []
         if self.env is not None:
             self.find_all_cell_where_agent_can_choose()
+            self.dead_lock_avoidance_agent = DeadLockAvoidanceAgent(self.env)
+        else:
+            self.dead_lock_avoidance_agent = None
 
     def find_all_cell_where_agent_can_choose(self):
         switches = {}
@@ -238,6 +243,10 @@ class FastTreeObs(ObservationBuilder):
         # observation[23] : If there is a switch on the path which agent can not use -> 1
         # observation[24] : If there is a switch on the path which agent can not use -> 1
         # observation[25] : If there is a switch on the path which agent can not use -> 1
+        # observation[26] : If there the dead-lock avoidance agent predicts a deadlock -> 1
+
+        if handle == 0:
+            self.dead_lock_avoidance_agent.start_step()
 
         observation = np.zeros(self.observation_dim)
         visited = []
@@ -291,6 +300,12 @@ class FastTreeObs(ObservationBuilder):
         observation[7] = int(agents_on_switch)
         observation[8] = int(agents_near_to_switch)
         observation[9] = int(agents_near_to_switch_all)
+
+        action = self.dead_lock_avoidance_agent.act([handle],0.0)
+        observation[26] = int(action == RailEnvActions.STOP_MOVING)
+        observation[27] = int(action == RailEnvActions.MOVE_LEFT)
+        observation[28] = int(action == RailEnvActions.MOVE_FORWARD)
+        observation[29] = int(action == RailEnvActions.MOVE_RIGHT)
 
         self.env.dev_obs_dict.update({handle: visited})
 
