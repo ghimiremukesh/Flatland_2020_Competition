@@ -21,7 +21,7 @@ class FastTreeObs(ObservationBuilder):
 
     def __init__(self, max_depth):
         self.max_depth = max_depth
-        self.observation_dim = 26
+        self.observation_dim = 27
 
     def build_data(self):
         if self.env is not None:

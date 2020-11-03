@@ -114,6 +114,7 @@ while True:
             if not check_if_all_blocked(env=local_env):
                 time_start = time.time()
                 action_dict = {}
+                policy.start_step()
                 for agent in range(nb_agents):
                     if info['action_required'][agent]:
                         if agent in agent_last_obs and np.all(agent_last_obs[agent] == observation[agent]):
@@ -128,6 +129,7 @@ while True:
                         if USE_ACTION_CACHE:
                             agent_last_obs[agent] = observation[agent]
                             agent_last_action[agent] = action
+                policy.end_step()
                 agent_time = time.time() - time_start
                 time_taken_by_controller.append(agent_time)
 
