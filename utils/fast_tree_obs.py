@@ -295,7 +295,3 @@ class FastTreeObs(ObservationBuilder):
         self.env.dev_obs_dict.update({handle: visited})
 
         return observation
-
-    @staticmethod
-    def agent_can_choose(observation):
-        return observation[7] == 1 or observation[8] == 1

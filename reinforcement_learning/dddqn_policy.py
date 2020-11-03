@@ -123,7 +123,11 @@ class DDDQNPolicy(Policy):
             self.qnetwork_local.load_state_dict(torch.load(filename + ".local"))
             self.qnetwork_target.load_state_dict(torch.load(filename + ".target"))
         else:
-            raise FileNotFoundError("Couldn't load policy from: '{}', '{}'".format(filename + ".local", filename + ".target"))
+            if os.path.exists(filename):
+                self.qnetwork_local.load_state_dict(torch.load(filename))
+                self.qnetwork_target.load_state_dict(torch.load(filename))
+            else:
+                raise FileNotFoundError("Couldn't load policy from: '{}', '{}'".format(filename + ".local", filename + ".target"))
 
     def save_replay_buffer(self, filename):
         memory = self.memory.memory

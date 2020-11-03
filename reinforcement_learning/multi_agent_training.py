@@ -322,7 +322,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Print logs
         if episode_idx % checkpoint_interval == 0:
-            torch.save(policy.qnetwork_local, './checkpoints/' + training_id + '-' + str(episode_idx) + '.pth')
+            policy.save('./checkpoints/' + training_id + '-' + str(episode_idx) + '.pth')
 
             if save_replay_buffer:
                 policy.save_replay_buffer('./replay_buffers/' + training_id + '-' + str(episode_idx) + '.pkl')
@@ -475,7 +475,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=0, type=int)
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
                         type=int)
-    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=50, type=int)
+    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=5, type=int)
     parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=100, type=int)
     parser.add_argument("--eps_start", help="max exploration", default=1.0, type=float)
     parser.add_argument("--eps_end", help="min exploration", default=0.01, type=float)
