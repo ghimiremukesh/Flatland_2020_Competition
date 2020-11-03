@@ -7,7 +7,7 @@ from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.rail_env import RailEnv, RailEnvActions, fast_count_nonzero
 
 from reinforcement_learning.policy import Policy
-from utils.shortest_Distance_walker import ShortestDistanceWalker
+from utils.shortest_distance_walker import ShortestDistanceWalker
 
 
 class DeadlockAvoidanceObservation(DummyObservationBuilder):

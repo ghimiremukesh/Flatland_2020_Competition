@@ -29,6 +29,7 @@ checkpoint = "./checkpoints/201103160541-1800.pth"
 
 # Use last action cache
 USE_ACTION_CACHE = True
+USE_DEAD_LOCK_AVOIDANCE_AGENT = False
 
 # Observation parameters (must match training parameters!)
 observation_tree_depth = 2
@@ -82,8 +83,6 @@ while True:
     nb_agents = len(local_env.agents)
     max_nb_steps = local_env._max_episode_steps
 
-    policy = DeadLockAvoidanceAgent(local_env)
-
     tree_observation.set_env(local_env)
     tree_observation.reset()
     observation = tree_observation.get_many(list(range(nb_agents)))
@@ -105,6 +104,9 @@ while True:
     agent_last_action = {}
     nb_hit = 0
 
+    if USE_DEAD_LOCK_AVOIDANCE_AGENT:
+        policy = DeadLockAvoidanceAgent(local_env)
+
     while True:
         try:
             #####################################################################
@@ -118,7 +120,14 @@ while True:
                 time_start = time.time()
                 action_dict = {}
                 policy.start_step()
+                if USE_DEAD_LOCK_AVOIDANCE_AGENT:
+                    observation = np.zeros((local_env.get_num_agents(), 2))
                 for agent in range(nb_agents):
+
+                    if USE_DEAD_LOCK_AVOIDANCE_AGENT:
+                        observation[agent][0] = agent
+                        observation[agent][1] = steps
+
                     if info['action_required'][agent]:
                         if agent in agent_last_obs and np.all(agent_last_obs[agent] == observation[agent]):
                             # cache hit
