@@ -9,6 +9,7 @@ from flatland.envs.predictions import ShortestPathPredictorForRailEnv
 from flatland.evaluators.client import FlatlandRemoteClient
 from flatland.evaluators.client import TimeoutException
 
+from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import check_if_all_blocked
 from utils.fast_tree_obs import FastTreeObs
 
@@ -80,6 +81,8 @@ while True:
     local_env = remote_client.env
     nb_agents = len(local_env.agents)
     max_nb_steps = local_env._max_episode_steps
+
+    policy = DeadLockAvoidanceAgent(local_env)
 
     tree_observation.set_env(local_env)
     tree_observation.reset()
