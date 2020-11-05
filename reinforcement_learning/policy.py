@@ -1,5 +1,5 @@
 class Policy:
-    def step(self, state, action, reward, next_state, done):
+    def step(self, handle, state, action, reward, next_state, done):
         raise NotImplementedError
 
     def act(self, state, eps=0.):
@@ -15,4 +15,13 @@ class Policy:
         pass
 
     def end_step(self):
+        pass
+
+    def load_replay_buffer(self, filename):
+        pass
+
+    def test(self):
+        pass
+
+    def reset(self):
         pass

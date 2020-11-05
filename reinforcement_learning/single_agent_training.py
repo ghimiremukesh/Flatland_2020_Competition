@@ -146,7 +146,9 @@ def train_agent(n_episodes):
             for agent in range(env.get_num_agents()):
                 # Only update the values when we are done or when an action was taken and thus relevant information is present
                 if update_values or done[agent]:
-                    policy.step(agent_prev_obs[agent], agent_prev_action[agent], all_rewards[agent], agent_obs[agent], done[agent])
+                    policy.step(agent,
+                                agent_prev_obs[agent], agent_prev_action[agent], all_rewards[agent],
+                                agent_obs[agent], done[agent])
 
                     agent_prev_obs[agent] = agent_obs[agent].copy()
                     agent_prev_action[agent] = action_dict[agent]

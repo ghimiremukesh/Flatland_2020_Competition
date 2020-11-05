@@ -18,13 +18,14 @@ from flatland.envs.schedule_generators import sparse_schedule_generator
 from flatland.utils.rendertools import RenderTool
 from torch.utils.tensorboard import SummaryWriter
 
+from reinforcement_learning.ppo.ppo_agent import PPOAgent
+
 base_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(base_dir))
 
 from utils.timer import Timer
 from utils.observation_utils import normalize_observation
-from utils.fast_tree_obs import FastTreeObs, fast_tree_obs_check_agent_deadlock
-from reinforcement_learning.dddqn_policy import DDDQNPolicy
+from utils.fast_tree_obs import FastTreeObs
 
 try:
     import wandb
@@ -171,8 +172,8 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     completion_window = deque(maxlen=checkpoint_interval)
 
     # Double Dueling DQN policy
-    policy = DDDQNPolicy(state_size, action_size, train_params)
-
+    # policy = DDDQNPolicy(state_size, action_size, train_params)
+    policy = PPOAgent(state_size, action_size, n_agents)
     # Load existing policy
     if train_params.load_policy is not "":
         policy.load(train_params.load_policy)
@@ -226,6 +227,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         train_env_params.n_agents = episode_idx % n_agents + 1
         train_env = create_rail_env(train_env_params, tree_observation)
         obs, info = train_env.reset(regenerate_rail=True, regenerate_schedule=True)
+        policy.reset()
         reset_timer.end()
 
         if train_params.render:
@@ -288,18 +290,10 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 if update_values[agent] or done['__all__']:
                     # Only learn from timesteps where somethings happened
                     learn_timer.start()
-                    call_step = True
-
-                    if not (agent_obs[agent][7] == 1 or agent_obs[agent][8] == 1 or agent_obs[agent][4] == 1):
-                        if action_dict.get(agent) == RailEnvActions.MOVE_FORWARD:
-                            call_step = np.random.random() < 0.1
-                    if fast_tree_obs_check_agent_deadlock(agent_obs[agent]):
-                        all_rewards[agent] -= 10
-                        call_step = True
-                    if call_step:
-                        policy.step(agent_prev_obs[agent], agent_prev_action[agent], all_rewards[agent],
-                                    agent_obs[agent],
-                                    done[agent])
+                    policy.step(agent,
+                                agent_prev_obs[agent], agent_prev_action[agent], all_rewards[agent],
+                                agent_obs[agent],
+                                done[agent])
                     learn_timer.end()
 
                     agent_prev_obs[agent] = agent_obs[agent].copy()
@@ -444,7 +438,6 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
         score = 0.0
 
         obs, info = env.reset(regenerate_rail=True, regenerate_schedule=True)
-
         final_step = 0
 
         for step in range(max_steps - 1):

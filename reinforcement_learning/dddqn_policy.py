@@ -67,7 +67,7 @@ class DDDQNPolicy(Policy):
         else:
             return random.choice(np.arange(self.action_size))
 
-    def step(self, state, action, reward, next_state, done):
+    def step(self, handle, state, action, reward, next_state, done):
         assert not self.evaluation_mode, "Policy has been initialized for evaluation only."
 
         # Save experience in replay memory

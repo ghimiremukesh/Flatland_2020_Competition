@@ -20,7 +20,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class PPOAgent(Policy):
-    def __init__(self, state_size, action_size, num_agents, env):
+    def __init__(self, state_size, action_size, num_agents):
         self.action_size = action_size
         self.state_size = state_size
         self.num_agents = num_agents
@@ -31,7 +31,7 @@ class PPOAgent(Policy):
         self.memory = ReplayBuffer(BUFFER_SIZE)
         self.t_step = 0
         self.loss = 0
-        self.env = env
+        self.num_agents = num_agents
 
     def reset(self):
         self.finished = [False] * len(self.episodes)
@@ -39,21 +39,11 @@ class PPOAgent(Policy):
 
     # Decide on an action to take in the environment
 
-    def act(self, handle, state, eps=None):
-        if True:
-            self.policy.eval()
-            with torch.no_grad():
-                output = self.policy(torch.from_numpy(state).float().unsqueeze(0).to(device))
-                return Categorical(output).sample().item()
-
-        # Epsilon-greedy action selection
-        if random.random() > eps:
-            self.policy.eval()
-            with torch.no_grad():
-                output = self.policy(torch.from_numpy(state).float().unsqueeze(0).to(device))
-                return Categorical(output).sample().item()
-        else:
-            return random.choice(np.arange(self.action_size))
+    def act(self, state, eps=None):
+        self.policy.eval()
+        with torch.no_grad():
+            output = self.policy(torch.from_numpy(state).float().unsqueeze(0).to(device))
+            return Categorical(output).sample().item()
 
     # Record the results of the agent's action and update the model
     def step(self, handle, state, action, reward, next_state, done):
