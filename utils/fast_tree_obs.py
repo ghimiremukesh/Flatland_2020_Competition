@@ -23,7 +23,7 @@ class FastTreeObs(ObservationBuilder):
 
     def __init__(self, max_depth):
         self.max_depth = max_depth
-        self.observation_dim = 30
+        self.observation_dim = 32
 
     def build_data(self):
         if self.env is not None:
@@ -287,7 +287,7 @@ class FastTreeObs(ObservationBuilder):
                     has_opp_agent, has_same_agent, has_switch, v = self._explore(handle, new_position, branch_direction)
                     visited.append(v)
 
-                    observation[10 + dir_loop] = 1
+                    observation[10 + dir_loop] = int(not np.math.isinf(new_cell_dist))
                     observation[14 + dir_loop] = has_opp_agent
                     observation[18 + dir_loop] = has_same_agent
                     observation[22 + dir_loop] = has_switch
@@ -301,12 +301,25 @@ class FastTreeObs(ObservationBuilder):
         observation[8] = int(agents_near_to_switch)
         observation[9] = int(agents_near_to_switch_all)
 
-        action = self.dead_lock_avoidance_agent.act([handle],0.0)
+        action = self.dead_lock_avoidance_agent.act([handle], 0.0)
         observation[26] = int(action == RailEnvActions.STOP_MOVING)
         observation[27] = int(action == RailEnvActions.MOVE_LEFT)
         observation[28] = int(action == RailEnvActions.MOVE_FORWARD)
         observation[29] = int(action == RailEnvActions.MOVE_RIGHT)
-
+        observation[30] = int(self.full_action_required(observation))
+        observation[31] = int(fast_tree_obs_check_agent_deadlock(observation))
         self.env.dev_obs_dict.update({handle: visited})
 
         return observation
+
+    def full_action_required(self, observation):
+        return observation[7] == 1 or observation[8] == 1 or observation[4] == 1
+
+
+def fast_tree_obs_check_agent_deadlock(observation):
+    nbr_of_path = 0
+    nbr_of_blocked_path = 0
+    for dir_loop in range(4):
+        nbr_of_path += observation[10 + dir_loop]
+        nbr_of_blocked_path += int(observation[14 + dir_loop] > 0)
+    return nbr_of_path <= nbr_of_blocked_path

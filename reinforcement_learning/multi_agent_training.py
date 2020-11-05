@@ -23,7 +23,7 @@ sys.path.append(str(base_dir))
 
 from utils.timer import Timer
 from utils.observation_utils import normalize_observation
-from utils.fast_tree_obs import FastTreeObs
+from utils.fast_tree_obs import FastTreeObs, fast_tree_obs_check_agent_deadlock
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
 
 try:
@@ -156,12 +156,6 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     # The action space of flatland is 5 discrete actions
     action_size = 5
 
-    # Max number of steps per episode
-    # This is the official formula used during evaluations
-    # See details in flatland.envs.schedule_generators.sparse_schedule_generator
-    # max_steps = int(4 * 2 * (env.height + env.width + (n_agents / n_cities)))
-    max_steps = train_env._max_episode_steps
-
     action_count = [0] * action_size
     action_dict = dict()
     agent_obs = [None] * n_agents
@@ -229,6 +223,8 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Reset environment
         reset_timer.start()
+        train_env_params.n_agents = episode_idx % n_agents + 1
+        train_env = create_rail_env(train_env_params, tree_observation)
         obs, info = train_env.reset(regenerate_rail=True, regenerate_schedule=True)
         reset_timer.end()
 
@@ -245,6 +241,12 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 agent_obs[agent] = tree_observation.get_normalized_observation(obs[agent], observation_tree_depth,
                                                                                observation_radius=observation_radius)
                 agent_prev_obs[agent] = agent_obs[agent].copy()
+
+        # Max number of steps per episode
+        # This is the official formula used during evaluations
+        # See details in flatland.envs.schedule_generators.sparse_schedule_generator
+        # max_steps = int(4 * 2 * (env.height + env.width + (n_agents / n_cities)))
+        max_steps = train_env._max_episode_steps
 
         # Run episode
         for step in range(max_steps - 1):
@@ -286,8 +288,18 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 if update_values[agent] or done['__all__']:
                     # Only learn from timesteps where somethings happened
                     learn_timer.start()
-                    policy.step(agent_prev_obs[agent], agent_prev_action[agent], all_rewards[agent], agent_obs[agent],
-                                done[agent])
+                    call_step = True
+
+                    if not (agent_obs[agent][7] == 1 or agent_obs[agent][8] == 1 or agent_obs[agent][4] == 1):
+                        if action_dict.get(agent) == RailEnvActions.MOVE_FORWARD:
+                            call_step = np.random.random() < 0.1
+                    if fast_tree_obs_check_agent_deadlock(agent_obs[agent]):
+                        all_rewards[agent] -= 10
+                        call_step = True
+                    if call_step:
+                        policy.step(agent_prev_obs[agent], agent_prev_action[agent], all_rewards[agent],
+                                    agent_obs[agent],
+                                    done[agent])
                     learn_timer.end()
 
                     agent_prev_obs[agent] = agent_obs[agent].copy()
@@ -474,8 +486,8 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=12500, type=int)
-    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=2, type=int)
+    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=5400, type=int)
+    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=1, type=int)
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
                         type=int)
     parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=5, type=int)
@@ -500,7 +512,7 @@ if __name__ == "__main__":
     parser.add_argument("--load_policy", help="policy filename (reference) to load", default="", type=str)
     parser.add_argument("--use_fast_tree_observation", help="use FastTreeObs instead of stock TreeObs",
                         action='store_true')
-    parser.add_argument("--max_depth", help="max depth", default=2, type=int)
+    parser.add_argument("--max_depth", help="max depth", default=1, type=int)
 
     training_params = parser.parse_args()
     env_params = [
