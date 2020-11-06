@@ -19,7 +19,6 @@ from flatland.utils.rendertools import RenderTool
 from torch.utils.tensorboard import SummaryWriter
 
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
-from reinforcement_learning.ppo.ppo_agent import PPOAgent
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
 base_dir = Path(__file__).resolve().parent.parent
@@ -200,9 +199,6 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
     # TensorBoard writer
     writer = SummaryWriter()
-    writer.add_hparams(vars(train_params), {})
-    writer.add_hparams(vars(train_env_params), {})
-    writer.add_hparams(vars(obs_params), {})
 
     training_timer = Timer()
     training_timer.start()
@@ -287,6 +283,22 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             # Environment step
             step_timer.start()
             next_obs, all_rewards, done, info = train_env.step(action_dict)
+
+            for agent in train_env.get_agent_handles():
+                act = action_dict.get(agent, RailEnvActions.DO_NOTHING)
+                if agent_obs[agent][26] == 1:
+                    if act == RailEnvActions.STOP_MOVING:
+                        all_rewards[agent] *= 0.01
+                else:
+                    if act == RailEnvActions.MOVE_LEFT:
+                        all_rewards[agent] *= 0.9
+                    else:
+                        if agent_obs[agent][7] == 0 and agent_obs[agent][8] == 0:
+                            if act == RailEnvActions.MOVE_FORWARD:
+                                all_rewards[agent] *= 0.01
+                if done[agent]:
+                    all_rewards[agent] += 100.0
+
             step_timer.end()
 
             # Render an episode at some interval
@@ -495,11 +507,11 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=5400, type=int)
     parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=1, type=int)
-    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=1,
+    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
                         type=int)
-    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=25, type=int)
+    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=1, type=int)
     parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=100, type=int)
-    parser.add_argument("--eps_start", help="max exploration", default=1.0, type=float)
+    parser.add_argument("--eps_start", help="max exploration", default=0.1, type=float)
     parser.add_argument("--eps_end", help="min exploration", default=0.01, type=float)
     parser.add_argument("--eps_decay", help="exploration decay", default=0.9998, type=float)
     parser.add_argument("--buffer_size", help="replay buffer size", default=int(1e7), type=int)
@@ -519,7 +531,7 @@ if __name__ == "__main__":
     parser.add_argument("--load_policy", help="policy filename (reference) to load", default="", type=str)
     parser.add_argument("--use_fast_tree_observation", help="use FastTreeObs instead of stock TreeObs",
                         action='store_true')
-    parser.add_argument("--max_depth", help="max depth", default=2, type=int)
+    parser.add_argument("--max_depth", help="max depth", default=1, type=int)
 
     training_params = parser.parse_args()
     env_params = [

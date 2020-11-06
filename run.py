@@ -10,7 +10,6 @@ from flatland.envs.rail_env import RailEnvActions
 from flatland.evaluators.client import FlatlandRemoteClient
 from flatland.evaluators.client import TimeoutException
 
-from reinforcement_learning.ppo.ppo_agent import PPOAgent
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import check_if_all_blocked
 from utils.fast_tree_obs import FastTreeObs
@@ -27,9 +26,8 @@ from reinforcement_learning.dddqn_policy import DDDQNPolicy
 VERBOSE = True
 
 # Checkpoint to use (remember to push it!)
-checkpoint = "./checkpoints/201105222046-5400.pth"  # 17.66104361971127 Depth 1
-checkpoint = "./checkpoints/201106073658-4400.pth"  # 15.64082361736683 Depth 1
-checkpoint = "./checkpoints/201106170544-5400.pth"  # 15.64082361736683 Depth 1
+checkpoint = "./checkpoints/201106234244-400.pth"  # 15.64082361736683 Depth 1
+checkpoint = "./checkpoints/201106234900-100.pth"  # 15.64082361736683 Depth 1
 
 # Use last action cache
 USE_ACTION_CACHE = False
@@ -140,9 +138,8 @@ while True:
                             nb_hit += 1
                         else:
                             action = policy.act(observation[agent], eps=0.01)
-
-                        if observation[agent][26] == 1:
-                            action = RailEnvActions.STOP_MOVING
+                            if observation[agent][26] == 1:
+                                action = RailEnvActions.STOP_MOVING
 
                         action_dict[agent] = action
 
