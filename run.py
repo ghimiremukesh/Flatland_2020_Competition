@@ -137,9 +137,9 @@ while True:
                             action = agent_last_action[agent]
                             nb_hit += 1
                         else:
-                            action = policy.act(observation[agent], eps=0.01)
-                            if observation[agent][26] == 1:
-                                action = RailEnvActions.STOP_MOVING
+                            action = policy.act(observation[agent], eps=0.0)
+                            #if observation[agent][26] == 1:
+                            #    action = RailEnvActions.STOP_MOVING
 
                         action_dict[agent] = action
 
