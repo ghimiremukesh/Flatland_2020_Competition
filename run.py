@@ -29,7 +29,7 @@ VERBOSE = True
 # Checkpoint to use (remember to push it!)
 checkpoint = "./checkpoints/201105222046-5400.pth"  # 17.66104361971127 Depth 1
 checkpoint = "./checkpoints/201106073658-4400.pth"  # 15.64082361736683 Depth 1
-# checkpoint = "./checkpoints/201106090621-3300.pth"  # 15.64082361736683 Depth 1
+checkpoint = "./checkpoints/201106090621-4500.pth"  # 15.64082361736683 Depth 1
 
 # Use last action cache
 USE_ACTION_CACHE = False
@@ -53,8 +53,8 @@ state_size = tree_observation.observation_dim
 action_size = 5
 
 # Creates the policy. No GPU on evaluation server.
-# policy = DDDQNPolicy(state_size, action_size, Namespace(**{'use_gpu': False}), evaluation_mode=True)
-policy = PPOAgent(state_size, action_size, 10)
+policy = DDDQNPolicy(state_size, action_size, Namespace(**{'use_gpu': False}), evaluation_mode=True)
+# policy = PPOAgent(state_size, action_size, 10)
 policy.load(checkpoint)
 
 #####################################################################

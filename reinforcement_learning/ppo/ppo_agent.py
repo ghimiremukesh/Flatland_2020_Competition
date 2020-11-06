@@ -39,10 +39,10 @@ class PPOAgent(Policy):
     # Decide on an action to take in the environment
 
     def act(self, state, eps=None):
-        if eps is not None:
-            # Epsilon-greedy action selection
-            if np.random.random() < eps:
-                return np.random.choice(np.arange(self.action_size))
+        # if eps is not None:
+        #     # Epsilon-greedy action selection
+        #     if np.random.random() < eps:
+        #         return np.random.choice(np.arange(self.action_size))
 
         self.policy.eval()
         with torch.no_grad():
