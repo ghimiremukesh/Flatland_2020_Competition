@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from flatland.core.env_observation_builder import DummyObservationBuilder
 from flatland.envs.predictions import ShortestPathPredictorForRailEnv
+from flatland.envs.rail_env import RailEnvActions
 from flatland.evaluators.client import FlatlandRemoteClient
 from flatland.evaluators.client import TimeoutException
 
@@ -25,10 +26,12 @@ from reinforcement_learning.dddqn_policy import DDDQNPolicy
 VERBOSE = True
 
 # Checkpoint to use (remember to push it!)
-checkpoint = "./checkpoints/201105173637-4700.pth" # 18.50097663335293 : Depth = 1
+checkpoint = "./checkpoints/201105222046-5400.pth"  # 17.66104361971127 Depth 1
+checkpoint = "./checkpoints/201106073658-4300.pth"  # 15.64082361736683 Depth 1
+checkpoint = "./checkpoints/201106090621-3300.pth"  # 15.64082361736683 Depth 1
 
 # Use last action cache
-USE_ACTION_CACHE = True
+USE_ACTION_CACHE = False
 USE_DEAD_LOCK_AVOIDANCE_AGENT = False
 
 # Observation parameters (must match training parameters!)
@@ -50,6 +53,7 @@ action_size = 5
 
 # Creates the policy. No GPU on evaluation server.
 policy = DDDQNPolicy(state_size, action_size, Namespace(**{'use_gpu': False}), evaluation_mode=True)
+# policy = PPOAgent(state_size, action_size, 10)
 policy.load(checkpoint)
 
 #####################################################################
@@ -134,7 +138,10 @@ while True:
                             action = agent_last_action[agent]
                             nb_hit += 1
                         else:
-                            action = policy.act(observation[agent], eps=0.0)
+                            action = policy.act(observation[agent], eps=0.01)
+
+                        if observation[agent][26] == 1:
+                            action = RailEnvActions.STOP_MOVING
 
                         action_dict[agent] = action
 

@@ -1,5 +1,4 @@
 import os
-import random
 
 import numpy as np
 import torch
@@ -17,6 +16,7 @@ CLIP_FACTOR = .005
 UPDATE_EVERY = 30
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print("device:", device)
 
 
 class PPOAgent(Policy):
@@ -31,7 +31,6 @@ class PPOAgent(Policy):
         self.memory = ReplayBuffer(BUFFER_SIZE)
         self.t_step = 0
         self.loss = 0
-        self.num_agents = num_agents
 
     def reset(self):
         self.finished = [False] * len(self.episodes)
@@ -43,7 +42,8 @@ class PPOAgent(Policy):
         self.policy.eval()
         with torch.no_grad():
             output = self.policy(torch.from_numpy(state).float().unsqueeze(0).to(device))
-            return Categorical(output).sample().item()
+            ret = Categorical(output).sample().item()
+            return ret
 
     # Record the results of the agent's action and update the model
     def step(self, handle, state, action, reward, next_state, done):
@@ -118,14 +118,14 @@ class PPOAgent(Policy):
         if os.path.exists(filename + ".policy"):
             print(' >> ', filename + ".policy")
             try:
-                self.policy.load_state_dict(torch.load(filename + ".policy"))
+                self.policy.load_state_dict(torch.load(filename + ".policy", map_location=device))
             except:
                 print(" >> failed!")
                 pass
         if os.path.exists(filename + ".optimizer"):
             print(' >> ', filename + ".optimizer")
             try:
-                self.optimizer.load_state_dict(torch.load(filename + ".optimizer"))
+                self.optimizer.load_state_dict(torch.load(filename + ".optimizer", map_location=device))
             except:
                 print(" >> failed!")
                 pass
