@@ -10,6 +10,7 @@ from flatland.envs.rail_env import RailEnvActions
 from flatland.evaluators.client import FlatlandRemoteClient
 from flatland.evaluators.client import TimeoutException
 
+from reinforcement_learning.ppo.ppo_agent import PPOAgent
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import check_if_all_blocked
 from utils.fast_tree_obs import FastTreeObs
