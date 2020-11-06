@@ -29,7 +29,7 @@ VERBOSE = True
 # Checkpoint to use (remember to push it!)
 checkpoint = "./checkpoints/201105222046-5400.pth"  # 17.66104361971127 Depth 1
 checkpoint = "./checkpoints/201106073658-4400.pth"  # 15.64082361736683 Depth 1
-checkpoint = "./checkpoints/201106090621-4500.pth"  # 15.64082361736683 Depth 1
+checkpoint = "./checkpoints/201106170544-5400.pth"  # 15.64082361736683 Depth 1
 
 # Use last action cache
 USE_ACTION_CACHE = False
