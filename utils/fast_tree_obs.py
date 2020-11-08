@@ -203,7 +203,6 @@ class FastTreeObs(ObservationBuilder):
 
             possible_transitions = self.env.rail.get_transitions(*new_position, new_direction)
             if agents_on_switch:
-                f = 0
                 orientation = new_direction
                 if fast_count_nonzero(possible_transitions) == 1:
                     orientation = fast_argmax(possible_transitions)
@@ -213,17 +212,15 @@ class FastTreeObs(ObservationBuilder):
                     # --- OPEN RESEARCH QUESTION ---> is this good or shall we use full detailed information as
                     # we did in the TreeObservation (FLATLAND) ?
                     if possible_transitions[dir_loop] == 1:
-                        f += 1
                         hoa, hsa, hs, v = self._explore(handle,
                                                         get_new_position(new_position, dir_loop),
                                                         dir_loop,
                                                         depth + 1)
                         visited.append(v)
-                        has_opp_agent += hoa
-                        has_same_agent += hsa
-                        has_switch += hs
-                f = max(f, 1.0)
-                return has_opp_agent / f, has_same_agent / f, has_switch / f, visited
+                        has_opp_agent = max(has_opp_agent, hoa)
+                        has_same_agent = max(has_same_agent, hsa)
+                        has_switch = max(has_switch, hs)
+                return has_opp_agent, has_same_agent, has_switch, visited
             else:
                 new_direction = fast_argmax(possible_transitions)
                 new_position = get_new_position(new_position, new_direction)
