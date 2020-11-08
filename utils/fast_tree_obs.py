@@ -168,7 +168,7 @@ class FastTreeObs(ObservationBuilder):
         if depth >= self.max_depth:
             return has_opp_agent, has_same_agent, has_switch, visited
 
-        # max_explore_steps = 100
+        # max_explore_steps = 100 -> just to ensure that the exploration ends
         cnt = 0
         while cnt < 100:
             cnt += 1
@@ -177,26 +177,41 @@ class FastTreeObs(ObservationBuilder):
             opp_a = self.env.agent_positions[new_position]
             if opp_a != -1 and opp_a != handle:
                 if self.env.agents[opp_a].direction != new_direction:
-                    # opp agent found
+                    # opp agent found -> stop exploring. This would be a strong signal.
                     has_opp_agent = 1
                     return has_opp_agent, has_same_agent, has_switch, visited
                 else:
+                    # same agent found
+                    # the agent can follow the agent, because this agent is still moving ahead and there shouldn't
+                    # be any dead-lock nor other issue -> agent is just walking -> if other agent has a deadlock
+                    # this should be avoided by other agents -> one edge case would be when other agent has it's
+                    # target on this branch -> thus the agents should scan further whether there will be an opposite
+                    # agent walking on same track
                     has_same_agent = 1
-                    return has_opp_agent, has_same_agent, has_switch, visited
+                    # !NOT stop exploring! return has_opp_agent, has_same_agent, has_switch, visited
 
-            # convert one-hot encoding to 0,1,2,3
-            agents_on_switch, \
-            agents_near_to_switch, \
-            agents_near_to_switch_all, \
-            agents_on_switch_all = \
+            # agents_on_switch == TRUE -> Current cell is a switch where the agent can decide (branch) in exploration
+            # agent_near_to_switch == TRUE -> One cell before the switch, where the agent can decide
+            #
+            agents_on_switch, agents_near_to_switch, _, _ = \
                 self.check_agent_decision(new_position, new_direction)
+
             if agents_near_to_switch:
+                # The exploration was walking on a path where the agent can not decide
+                # Best option would be MOVE_FORWARD -> Skip exploring - just walking
                 return has_opp_agent, has_same_agent, has_switch, visited
 
             possible_transitions = self.env.rail.get_transitions(*new_position, new_direction)
             if agents_on_switch:
                 f = 0
-                for dir_loop in range(4):
+                orientation = new_direction
+                if fast_count_nonzero(possible_transitions) == 1:
+                    orientation = fast_argmax(possible_transitions)
+                for dir_loop, branch_direction in enumerate(
+                        [(orientation + dir_loop) % 4 for dir_loop in range(-1, 3)]):
+                    # branch the exploration path and aggregate the found information
+                    # --- OPEN RESEARCH QUESTION ---> is this good or shall we use full detailed information as
+                    # we did in the TreeObservation (FLATLAND) ?
                     if possible_transitions[dir_loop] == 1:
                         f += 1
                         hoa, hsa, hs, v = self._explore(handle,

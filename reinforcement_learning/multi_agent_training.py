@@ -264,7 +264,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 if info['action_required'][agent]:
                     update_values[agent] = True
 
-                    if agent == agent_to_learn:
+                    if agent == agent_to_learn or True:
                         action = policy.act(agent_obs[agent], eps=eps_start)
                     else:
                         action = policy2.act([agent], eps=eps_start)
@@ -284,20 +284,21 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             step_timer.start()
             next_obs, all_rewards, done, info = train_env.step(action_dict)
 
-            for agent in train_env.get_agent_handles():
-                act = action_dict.get(agent, RailEnvActions.DO_NOTHING)
-                if agent_obs[agent][26] == 1:
-                    if act == RailEnvActions.STOP_MOVING:
-                        all_rewards[agent] *= 0.01
-                else:
-                    if act == RailEnvActions.MOVE_LEFT:
-                        all_rewards[agent] *= 0.9
+            if False:
+                for agent in train_env.get_agent_handles():
+                    act = action_dict.get(agent, RailEnvActions.DO_NOTHING)
+                    if agent_obs[agent][26] == 1:
+                        if act == RailEnvActions.STOP_MOVING:
+                            all_rewards[agent] *= 0.01
                     else:
-                        if agent_obs[agent][7] == 0 and agent_obs[agent][8] == 0:
-                            if act == RailEnvActions.MOVE_FORWARD:
-                                all_rewards[agent] *= 0.01
-                if done[agent]:
-                    all_rewards[agent] += 100.0
+                        if act == RailEnvActions.MOVE_LEFT:
+                            all_rewards[agent] *= 0.9
+                        else:
+                            if agent_obs[agent][7] == 0 and agent_obs[agent][8] == 0:
+                                if act == RailEnvActions.MOVE_FORWARD:
+                                    all_rewards[agent] *= 0.01
+                    if done[agent]:
+                        all_rewards[agent] += 100.0
 
             step_timer.end()
 
@@ -531,7 +532,7 @@ if __name__ == "__main__":
     parser.add_argument("--load_policy", help="policy filename (reference) to load", default="", type=str)
     parser.add_argument("--use_fast_tree_observation", help="use FastTreeObs instead of stock TreeObs",
                         action='store_true')
-    parser.add_argument("--max_depth", help="max depth", default=1, type=int)
+    parser.add_argument("--max_depth", help="max depth", default=2, type=int)
 
     training_params = parser.parse_args()
     env_params = [
