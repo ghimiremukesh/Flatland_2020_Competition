@@ -25,3 +25,6 @@ class Policy:
 
     def reset(self):
         pass
+
+    def clone(self):
+        return self

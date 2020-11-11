@@ -17,6 +17,7 @@ class DDDQNPolicy(Policy):
     """Dueling Double DQN policy"""
 
     def __init__(self, state_size, action_size, parameters, evaluation_mode=False):
+        self.parameters = parameters
         self.evaluation_mode = evaluation_mode
 
         self.state_size = state_size
@@ -59,11 +60,16 @@ class DDDQNPolicy(Policy):
         self.qnetwork_local.eval()
         with torch.no_grad():
             action_values = self.qnetwork_local(state)
+
         self.qnetwork_local.train()
 
         # Epsilon-greedy action selection
-        if random.random() > eps:
+        if random.random() >= eps:
             return np.argmax(action_values.cpu().data.numpy())
+            qvals = action_values.cpu().data.numpy()[0]
+            qvals = qvals - np.min(qvals)
+            qvals = qvals / (1e-5 + np.sum(qvals))
+            return np.argmax(np.random.multinomial(1, qvals))
         else:
             return random.choice(np.arange(self.action_size))
 
@@ -147,6 +153,12 @@ class DDDQNPolicy(Policy):
     def test(self):
         self.act(np.array([[0] * self.state_size]))
         self._learn()
+
+    def clone(self):
+        me = DDDQNPolicy(self.state_size, self.action_size, self.parameters, evaluation_mode=True)
+        me.qnetwork_target = copy.deepcopy(self.qnetwork_local)
+        me.qnetwork_target = copy.deepcopy(self.qnetwork_target)
+        return me
 
 
 Experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])

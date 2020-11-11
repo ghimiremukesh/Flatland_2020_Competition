@@ -222,8 +222,8 @@ class FastTreeObs(ObservationBuilder):
                                                         dir_loop,
                                                         depth + 1)
                         visited.append(v)
-                        has_opp_agent = max(has_opp_agent, hoa)
-                        has_same_agent = max(has_same_agent, hsa)
+                        has_opp_agent += hoa * 2 ** (-1 - depth)
+                        has_same_agent += hsa * 2 ** (-1 - depth)
                         has_target = max(has_target, ht)
                 return has_opp_agent, has_same_agent, has_target, visited
             else:
