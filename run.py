@@ -26,7 +26,7 @@ from reinforcement_learning.dddqn_policy import DDDQNPolicy
 VERBOSE = True
 
 # Checkpoint to use (remember to push it!)
-checkpoint = "./checkpoints/201111175340-5400.pth"
+checkpoint = "./checkpoints/201112143850-4100.pth" # 21.543589381053096 DEPTH=2
 
 # Use last action cache
 USE_ACTION_CACHE = False
@@ -137,14 +137,13 @@ while True:
                             nb_hit += 1
                         else:
                             action = policy.act(observation[agent], eps=0.01)
-                            #if observation[agent][26] == 1:
-                            #    action = RailEnvActions.STOP_MOVING
 
                         action_dict[agent] = action
 
                         if USE_ACTION_CACHE:
                             agent_last_obs[agent] = observation[agent]
                             agent_last_action[agent] = action
+
                 policy.end_step()
                 agent_time = time.time() - time_start
                 time_taken_by_controller.append(agent_time)
