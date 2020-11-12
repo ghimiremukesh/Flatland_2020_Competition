@@ -26,14 +26,14 @@ from reinforcement_learning.dddqn_policy import DDDQNPolicy
 VERBOSE = True
 
 # Checkpoint to use (remember to push it!)
-checkpoint = "./checkpoints/201106234900-5400.pth"  # 15.64082361736683 Depth 1
+checkpoint = "./checkpoints/201111175340-5400.pth"
 
 # Use last action cache
 USE_ACTION_CACHE = False
 USE_DEAD_LOCK_AVOIDANCE_AGENT = False
 
 # Observation parameters (must match training parameters!)
-observation_tree_depth = 1
+observation_tree_depth = 2
 observation_radius = 10
 observation_max_path_depth = 30
 

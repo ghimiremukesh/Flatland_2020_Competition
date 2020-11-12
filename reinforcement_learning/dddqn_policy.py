@@ -128,10 +128,10 @@ class DDDQNPolicy(Policy):
     def load(self, filename):
         try:
             if os.path.exists(filename + ".local") and os.path.exists(filename + ".target"):
-                self.qnetwork_local.load_state_dict(torch.load(filename + ".local"))
+                self.qnetwork_local.load_state_dict(torch.load(filename + ".local", map_location=self.device))
                 print("qnetwork_local loaded ('{}')".format(filename + ".local"))
                 if not self.evaluation_mode:
-                    self.qnetwork_target.load_state_dict(torch.load(filename + ".target"))
+                    self.qnetwork_target.load_state_dict(torch.load(filename + ".target", map_location=self.device))
                     print("qnetwork_target loaded ('{}' )".format(filename + ".target"))
             else:
                 print(">> Checkpoint not found, using untrained policy! ('{}', '{}')".format(filename + ".local",
