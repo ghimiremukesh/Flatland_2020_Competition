@@ -416,6 +416,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         writer.add_scalar("training/completion", np.mean(completion), episode_idx)
         writer.add_scalar("training/smoothed_completion", np.mean(smoothed_completion), episode_idx)
         writer.add_scalar("training/nb_steps", nb_steps, episode_idx)
+        writer.add_scalar("training/n_agents", train_env_params.n_agents, episode_idx)
         writer.add_histogram("actions/distribution", np.array(actions_taken), episode_idx)
         writer.add_scalar("actions/nothing", action_probs[RailEnvActions.DO_NOTHING], episode_idx)
         writer.add_scalar("actions/left", action_probs[RailEnvActions.MOVE_LEFT], episode_idx)
@@ -501,7 +502,7 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=54000, type=int)
-    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=2,
+    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=1,
                         type=int)
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=1,
                         type=int)
