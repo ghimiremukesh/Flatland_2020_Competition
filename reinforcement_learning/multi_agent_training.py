@@ -172,7 +172,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     completion_window = deque(maxlen=checkpoint_interval)
 
     # Double Dueling DQN policy
-    USE_SINGLE_AGENT_TRAINING = True
+    USE_SINGLE_AGENT_TRAINING = False
     UPDATE_POLICY2_N_EPISODE = 1000
     policy = DDDQNPolicy(state_size, action_size, train_params)
     # policy = PPOAgent(state_size, action_size, n_agents)
@@ -521,7 +521,7 @@ if __name__ == "__main__":
     parser.add_argument("--learning_rate", help="learning rate", default=0.5e-4, type=float)
     parser.add_argument("--hidden_size", help="hidden size (2 fc layers)", default=128, type=int)
     parser.add_argument("--update_every", help="how often to update the network", default=10, type=int)
-    parser.add_argument("--use_gpu", help="use GPU if available", default=True, type=bool)
+    parser.add_argument("--use_gpu", help="use GPU if available", default=False, type=bool)
     parser.add_argument("--num_threads", help="number of threads PyTorch can use", default=4, type=int)
     parser.add_argument("--render", help="render 1 episode in 100", action='store_true')
     parser.add_argument("--load_policy", help="policy filename (reference) to load", default="", type=str)
