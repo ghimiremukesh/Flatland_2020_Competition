@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 import numpy as np
 from flatland.core.env_observation_builder import ObservationBuilder
 from flatland.core.grid.grid4_utils import get_new_position
@@ -232,6 +234,12 @@ class FastTreeObs(ObservationBuilder):
 
         return has_opp_agent, has_same_agent, has_target, visited
 
+    def get_many(self, handles: Optional[List[int]] = None):
+        self.dead_lock_avoidance_agent.start_step()
+        observations = super().get_many(handles)
+        self.dead_lock_avoidance_agent.end_step()
+        return observations
+
     def get(self, handle):
         # all values are [0,1]
         # observation[0]  : 1 path towards target (direction 0) / otherwise 0 -> path is longer or there is no path
@@ -261,9 +269,6 @@ class FastTreeObs(ObservationBuilder):
         # observation[24] : If there is a switch on the path which agent can not use -> 1
         # observation[25] : If there is a switch on the path which agent can not use -> 1
         # observation[26] : If there the dead-lock avoidance agent predicts a deadlock -> 1
-
-        if handle == 0:
-            self.dead_lock_avoidance_agent.start_step()
 
         observation = np.zeros(self.observation_dim)
         visited = []
