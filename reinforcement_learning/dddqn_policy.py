@@ -66,10 +66,6 @@ class DDDQNPolicy(Policy):
         # Epsilon-greedy action selection
         if random.random() >= eps:
             return np.argmax(action_values.cpu().data.numpy())
-            qvals = action_values.cpu().data.numpy()[0]
-            qvals = qvals - np.min(qvals)
-            qvals = qvals / (1e-5 + np.sum(qvals))
-            return np.argmax(np.random.multinomial(1, qvals))
         else:
             return random.choice(np.arange(self.action_size))
 

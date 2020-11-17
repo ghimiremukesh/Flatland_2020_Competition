@@ -25,7 +25,7 @@ class FastTreeObs(ObservationBuilder):
 
     def __init__(self, max_depth):
         self.max_depth = max_depth
-        self.observation_dim = 27
+        self.observation_dim = 32
 
     def build_data(self):
         if self.env is not None:
@@ -40,8 +40,8 @@ class FastTreeObs(ObservationBuilder):
         else:
             self.dead_lock_avoidance_agent = None
 
-    def find_all_cell_where_agent_can_choose(self):
-        switches = {}
+    def find_all_switches(self):
+        self.switches = {}
         for h in range(self.env.height):
             for w in range(self.env.width):
                 pos = (h, w)
@@ -49,12 +49,13 @@ class FastTreeObs(ObservationBuilder):
                     possible_transitions = self.env.rail.get_transitions(*pos, dir)
                     num_transitions = fast_count_nonzero(possible_transitions)
                     if num_transitions > 1:
-                        if pos not in switches.keys():
-                            switches.update({pos: [dir]})
+                        if pos not in self.switches.keys():
+                            self.switches.update({pos: [dir]})
                         else:
-                            switches[pos].append(dir)
+                            self.switches[pos].append(dir)
 
-        switches_neighbours = {}
+    def find_all_switch_neighbours(self):
+        self.switches_neighbours = {}
         for h in range(self.env.height):
             for w in range(self.env.width):
                 # look one step forward
@@ -64,35 +65,34 @@ class FastTreeObs(ObservationBuilder):
                     for d in range(4):
                         if possible_transitions[d] == 1:
                             new_cell = get_new_position(pos, d)
-                            if new_cell in switches.keys() and pos not in switches.keys():
-                                if pos not in switches_neighbours.keys():
-                                    switches_neighbours.update({pos: [dir]})
+                            if new_cell in self.switches.keys() and pos not in self.switches.keys():
+                                if pos not in self.switches_neighbours.keys():
+                                    self.switches_neighbours.update({pos: [dir]})
                                 else:
-                                    switches_neighbours[pos].append(dir)
+                                    self.switches_neighbours[pos].append(dir)
 
-        self.switches = switches
-        self.switches_neighbours = switches_neighbours
+    def find_all_cell_where_agent_can_choose(self):
+        self.find_all_switches()
+        self.find_all_switch_neighbours()
 
     def check_agent_decision(self, position, direction):
-        switches = self.switches
-        switches_neighbours = self.switches_neighbours
         agents_on_switch = False
         agents_on_switch_all = False
         agents_near_to_switch = False
         agents_near_to_switch_all = False
-        if position in switches.keys():
-            agents_on_switch = direction in switches[position]
+        if position in self.switches.keys():
+            agents_on_switch = direction in self.switches[position]
             agents_on_switch_all = True
 
-        if position in switches_neighbours.keys():
+        if position in self.switches_neighbours.keys():
             new_cell = get_new_position(position, direction)
-            if new_cell in switches.keys():
-                if not direction in switches[new_cell]:
-                    agents_near_to_switch = direction in switches_neighbours[position]
+            if new_cell in self.switches.keys():
+                if not direction in self.switches[new_cell]:
+                    agents_near_to_switch = direction in self.switches_neighbours[position]
             else:
-                agents_near_to_switch = direction in switches_neighbours[position]
+                agents_near_to_switch = direction in self.switches_neighbours[position]
 
-            agents_near_to_switch_all = direction in switches_neighbours[position]
+            agents_near_to_switch_all = direction in self.switches_neighbours[position]
 
         return agents_on_switch, agents_near_to_switch, agents_near_to_switch_all, agents_on_switch_all
 
@@ -150,15 +150,6 @@ class FastTreeObs(ObservationBuilder):
     def reset(self):
         self.build_data()
         return
-
-    def fast_argmax(self, array):
-        if array[0] == 1:
-            return 0
-        if array[1] == 1:
-            return 1
-        if array[2] == 1:
-            return 2
-        return 3
 
     def _explore(self, handle, new_position, new_direction, depth=0):
         has_opp_agent = 0
@@ -269,6 +260,7 @@ class FastTreeObs(ObservationBuilder):
         # observation[24] : If there is a switch on the path which agent can not use -> 1
         # observation[25] : If there is a switch on the path which agent can not use -> 1
         # observation[26] : If there the dead-lock avoidance agent predicts a deadlock -> 1
+        # observation[27] : If there the agent can only walk forward or stop -> 1
 
         observation = np.zeros(self.observation_dim)
         visited = []
@@ -313,18 +305,21 @@ class FastTreeObs(ObservationBuilder):
                     observation[14 + dir_loop] = has_opp_agent
                     observation[18 + dir_loop] = has_same_agent
                     observation[22 + dir_loop] = has_target
+                    observation[26 + dir_loop] = int(np.math.isinf(new_cell_dist))
 
-        agents_on_switch, \
-        agents_near_to_switch, \
-        agents_near_to_switch_all, \
-        agents_on_switch_all = \
-            self.check_agent_decision(agent_virtual_position, agent.direction)
-        observation[7] = int(agents_on_switch)
-        observation[8] = int(agents_near_to_switch)
-        observation[9] = int(agents_near_to_switch_all)
+            agents_on_switch, \
+            agents_near_to_switch, \
+            agents_near_to_switch_all, \
+            agents_on_switch_all = \
+                self.check_agent_decision(agent_virtual_position, agent.direction)
+            observation[7] = int(agents_on_switch)
+            observation[8] = int(agents_near_to_switch)
+            observation[9] = int(agents_near_to_switch_all)
 
-        action = self.dead_lock_avoidance_agent.act([handle], 0.0)
-        observation[26] = int(action == RailEnvActions.STOP_MOVING)
+            action = self.dead_lock_avoidance_agent.act([handle], 0.0)
+            observation[30] = int(action == RailEnvActions.STOP_MOVING)
+            observation[31] = int(fast_count_nonzero(possible_transitions) == 1)
+
         self.env.dev_obs_dict.update({handle: visited})
 
         return observation

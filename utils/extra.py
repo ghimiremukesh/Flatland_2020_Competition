@@ -187,6 +187,7 @@ class Extra(ObservationBuilder):
     def _check_dead_lock_at_branching_position(self, handle, new_position, branch_direction):
         _, full_shortest_distance_agent_map = self.dead_lock_avoidance_agent.shortest_distance_walker.getData()
         opp_agents = self.dead_lock_avoidance_agent.shortest_distance_walker.opp_agent_map.get(handle, [])
+        same_agents = self.dead_lock_avoidance_agent.shortest_distance_walker.same_agent_map.get(handle,[])
         local_walker = DeadlockAvoidanceShortestDistanceWalker(
             self.env,
             self.dead_lock_avoidance_agent.shortest_distance_walker.agent_positions,
@@ -196,6 +197,7 @@ class Extra(ObservationBuilder):
         my_shortest_path_to_check = shortest_distance_agent_map[handle]
         next_step_ok = self.dead_lock_avoidance_agent.check_agent_can_move(my_shortest_path_to_check,
                                                                            opp_agents,
+                                                                           same_agents,
                                                                            full_shortest_distance_agent_map)
         return next_step_ok
 

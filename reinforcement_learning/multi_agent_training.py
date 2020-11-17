@@ -171,9 +171,14 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     scores_window = deque(maxlen=checkpoint_interval)  # todo smooth when rendering instead
     completion_window = deque(maxlen=checkpoint_interval)
 
+    # IF USE_SINGLE_AGENT_TRAINING is set and the episode_idx <= MAX_SINGLE_TRAINING_ITERATION then
+    # the training gets done with single use. Each UPDATE_POLICY2_N_EPISODE the second policy get replaced
+    # with the policy (the one which get trained).
+    USE_SINGLE_AGENT_TRAINING = True
+    MAX_SINGLE_TRAINING_ITERATION = 1000
+    UPDATE_POLICY2_N_EPISODE = 200
+
     # Double Dueling DQN policy
-    USE_SINGLE_AGENT_TRAINING = False
-    UPDATE_POLICY2_N_EPISODE = 1000
     policy = DDDQNPolicy(state_size, action_size, train_params)
     # policy = PPOAgent(state_size, action_size, n_agents)
     # Load existing policy
@@ -220,6 +225,9 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         learn_timer = Timer()
         preproc_timer = Timer()
         inference_timer = Timer()
+
+        if episode_idx > MAX_SINGLE_TRAINING_ITERATION:
+            USE_SINGLE_AGENT_TRAINING = False
 
         # Reset environment
         reset_timer.start()
@@ -293,6 +301,11 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                         if agent_obs[agent][26] == 1:
                             if act != RailEnvActions.STOP_MOVING:
                                 all_rewards[agent] -= 10.0
+                        if agent_obs[agent][27] == 1:
+                            if act == RailEnvActions.MOVE_LEFT or \
+                                    act == RailEnvActions.MOVE_RIGHT or \
+                                    act == RailEnvActions.DO_NOTHING:
+                                all_rewards[agent] -= 1.0
 
             step_timer.end()
 
@@ -310,7 +323,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 if update_values[agent] or done['__all__']:
                     # Only learn from timesteps where somethings happened
                     learn_timer.start()
-                    if agent in agent_to_learn:
+                    if agent in agent_to_learn or not USE_SINGLE_AGENT_TRAINING:
                         policy.step(agent,
                                     agent_prev_obs[agent], agent_prev_action[agent], all_rewards[agent],
                                     agent_obs[agent],
@@ -501,8 +514,8 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=54000, type=int)
-    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=1,
+    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=2000, type=int)
+    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=2,
                         type=int)
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=1,
                         type=int)

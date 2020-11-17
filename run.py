@@ -27,12 +27,11 @@ VERBOSE = True
 
 # Checkpoint to use (remember to push it!)
 # checkpoint = "./checkpoints/201112143850-5400.pth" # 21.220418678677177 DEPTH=2 AGENTS=10
-checkpoint = "./checkpoints/201113211844-6700.pth" # 19.690047767961005 DEPTH=2 AGENTS=20
-
+checkpoint = "./checkpoints/201117082153-1500.pth" # 21.570149424415636 DEPTH=2 AGENTS=10
 
 # Use last action cache
 USE_ACTION_CACHE = False
-USE_DEAD_LOCK_AVOIDANCE_AGENT = False
+USE_DEAD_LOCK_AVOIDANCE_AGENT = False # 21.54485505223213
 
 # Observation parameters (must match training parameters!)
 observation_tree_depth = 2
