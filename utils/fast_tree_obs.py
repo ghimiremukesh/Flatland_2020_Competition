@@ -25,7 +25,7 @@ class FastTreeObs(ObservationBuilder):
 
     def __init__(self, max_depth):
         self.max_depth = max_depth
-        self.observation_dim = 32
+        self.observation_dim = 33
 
     def build_data(self):
         if self.env is not None:
@@ -41,6 +41,8 @@ class FastTreeObs(ObservationBuilder):
             self.dead_lock_avoidance_agent = None
 
     def find_all_switches(self):
+        # Search the environment (rail grid) for all switch cells. A switch is a cell where more than one tranisation
+        # exists and collect all direction where the switch is a switch.
         self.switches = {}
         for h in range(self.env.height):
             for w in range(self.env.width):
@@ -55,6 +57,8 @@ class FastTreeObs(ObservationBuilder):
                             self.switches[pos].append(dir)
 
     def find_all_switch_neighbours(self):
+        # Collect all cells where is a neighbour to a switch cell. All cells are neighbour where the agent can make
+        # just one step and he stands on a switch. A switch is a cell where the agents has more than one transition.
         self.switches_neighbours = {}
         for h in range(self.env.height):
             for w in range(self.env.width):
@@ -72,10 +76,18 @@ class FastTreeObs(ObservationBuilder):
                                     self.switches_neighbours[pos].append(dir)
 
     def find_all_cell_where_agent_can_choose(self):
+        # prepare the data - collect all cells where the agent can choose more than FORWARD/STOP.
         self.find_all_switches()
         self.find_all_switch_neighbours()
 
     def check_agent_decision(self, position, direction):
+        # Decide whether the agent is
+        # - on a switch
+        # - at a switch neighbour (near to switch). The switch must be a switch where the agent has more option than
+        #   FORWARD/STOP
+        # - all switch : doesn't matter whether the agent has more options than FORWARD/STOP
+        # - all switch neightbors : doesn't matter the agent has more then one options (transistion) when he reach the
+        #   switch
         agents_on_switch = False
         agents_on_switch_all = False
         agents_near_to_switch = False
@@ -301,24 +313,26 @@ class FastTreeObs(ObservationBuilder):
                     has_opp_agent, has_same_agent, has_target, v = self._explore(handle, new_position, branch_direction)
                     visited.append(v)
 
-                    observation[10 + dir_loop] = int(not np.math.isinf(new_cell_dist))
-                    observation[14 + dir_loop] = has_opp_agent
-                    observation[18 + dir_loop] = has_same_agent
-                    observation[22 + dir_loop] = has_target
-                    observation[26 + dir_loop] = int(np.math.isinf(new_cell_dist))
+                    observation[11 + dir_loop] = int(not np.math.isinf(new_cell_dist))
+                    observation[15 + dir_loop] = has_opp_agent
+                    observation[19 + dir_loop] = has_same_agent
+                    observation[23 + dir_loop] = has_target
+                    observation[27 + dir_loop] = int(np.math.isinf(new_cell_dist))
 
             agents_on_switch, \
             agents_near_to_switch, \
             agents_near_to_switch_all, \
             agents_on_switch_all = \
                 self.check_agent_decision(agent_virtual_position, agent.direction)
+
             observation[7] = int(agents_on_switch)
-            observation[8] = int(agents_near_to_switch)
-            observation[9] = int(agents_near_to_switch_all)
+            observation[8] = int(agents_on_switch_all)
+            observation[9] = int(agents_near_to_switch)
+            observation[10] = int(agents_near_to_switch_all)
 
             action = self.dead_lock_avoidance_agent.act([handle], 0.0)
-            observation[30] = int(action == RailEnvActions.STOP_MOVING)
-            observation[31] = int(fast_count_nonzero(possible_transitions) == 1)
+            observation[31] = int(action == RailEnvActions.STOP_MOVING)
+            observation[32] = int(fast_count_nonzero(possible_transitions) == 1)
 
         self.env.dev_obs_dict.update({handle: visited})
 

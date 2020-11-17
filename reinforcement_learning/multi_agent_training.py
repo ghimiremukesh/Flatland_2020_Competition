@@ -541,7 +541,7 @@ if __name__ == "__main__":
     parser.add_argument("--load_policy", help="policy filename (reference) to load", default="", type=str)
     parser.add_argument("--use_fast_tree_observation", help="use FastTreeObs instead of stock TreeObs",
                         action='store_true')
-    parser.add_argument("--max_depth", help="max depth", default=2, type=int)
+    parser.add_argument("--max_depth", help="max depth", default=1, type=int)
 
     training_params = parser.parse_args()
     env_params = [
