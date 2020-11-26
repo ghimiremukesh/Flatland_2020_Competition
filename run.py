@@ -1,3 +1,24 @@
+'''
+DDDQNPolicy experiments - EPSILON impact analysis
+----------------------------------------------------------------------------------------
+checkpoint = "./checkpoints/201124171810-7800.pth"  # Training on AGENTS=10 with Depth=2
+EPSILON = 0.000 # Sum Normalized Reward :  0.000000000000000 (primary score)
+EPSILON = 0.002 # Sum Normalized Reward : 18.445875081269286 (primary score)
+EPSILON = 0.005 # Sum Normalized Reward : 18.371733625865854 (primary score)
+EPSILON = 0.010 # Sum Normalized Reward : 18.249244799876152 (primary score)
+EPSILON = 0.020 # Sum Normalized Reward : 17.526987022691376 (primary score)
+EPSILON = 0.030 # Sum Normalized Reward : 16.796885571003942 (primary score)
+EPSILON = 0.040 # Sum Normalized Reward : 17.280787151431426 (primary score)
+EPSILON = 0.050 # Sum Normalized Reward : 16.256945636647025 (primary score)
+EPSILON = 0.100 # Sum Normalized Reward : 14.828347241759966 (primary score)
+EPSILON = 0.200 # Sum Normalized Reward : 11.192330074898457 (primary score)
+EPSILON = 0.300 # Sum Normalized Reward : 14.523067754608782 (primary score)
+EPSILON = 0.400 # Sum Normalized Reward : 12.901508220410834 (primary score)
+EPSILON = 0.500 # Sum Normalized Reward :  3.754660231871272 (primary score)
+EPSILON = 1.000 # Sum Normalized Reward :  1.397180159192391 (primary score)
+'''
+
+
 import sys
 import time
 from argparse import Namespace
@@ -6,7 +27,6 @@ from pathlib import Path
 import numpy as np
 from flatland.core.env_observation_builder import DummyObservationBuilder
 from flatland.envs.predictions import ShortestPathPredictorForRailEnv
-from flatland.envs.rail_env import RailEnvActions
 from flatland.evaluators.client import FlatlandRemoteClient
 from flatland.evaluators.client import TimeoutException
 
@@ -26,8 +46,9 @@ from reinforcement_learning.dddqn_policy import DDDQNPolicy
 VERBOSE = True
 
 # Checkpoint to use (remember to push it!)
-# checkpoint = "./checkpoints/201112143850-5400.pth" # 21.220418678677177 DEPTH=2 AGENTS=10
-checkpoint = "./checkpoints/201117082153-1500.pth" # 21.570149424415636 DEPTH=2 AGENTS=10
+checkpoint = "./checkpoints/201124171810-7800.pth"  # 18.249244799876152 DEPTH=2 AGENTS=10
+
+EPSILON = 0.01
 
 # Use last action cache
 USE_ACTION_CACHE = False
@@ -108,7 +129,7 @@ while True:
     nb_hit = 0
 
     if USE_DEAD_LOCK_AVOIDANCE_AGENT:
-        policy = DeadLockAvoidanceAgent(local_env)
+        policy = DeadLockAvoidanceAgent(local_env, action_size)
 
     while True:
         try:
@@ -125,25 +146,26 @@ while True:
                 policy.start_step()
                 if USE_DEAD_LOCK_AVOIDANCE_AGENT:
                     observation = np.zeros((local_env.get_num_agents(), 2))
-                for agent in range(nb_agents):
+                for agent_handle in range(nb_agents):
 
                     if USE_DEAD_LOCK_AVOIDANCE_AGENT:
-                        observation[agent][0] = agent
-                        observation[agent][1] = steps
+                        observation[agent_handle][0] = agent_handle
+                        observation[agent_handle][1] = steps
 
-                    if info['action_required'][agent]:
-                        if agent in agent_last_obs and np.all(agent_last_obs[agent] == observation[agent]):
+                    if info['action_required'][agent_handle]:
+                        if agent_handle in agent_last_obs and np.all(
+                                agent_last_obs[agent_handle] == observation[agent_handle]):
                             # cache hit
-                            action = agent_last_action[agent]
+                            action = agent_last_action[agent_handle]
                             nb_hit += 1
                         else:
-                            action = policy.act(observation[agent], eps=0.01)
+                            action = policy.act(observation[agent_handle], eps=EPSILON)
 
-                        action_dict[agent] = action
+                    action_dict[agent_handle] = action
 
-                        if USE_ACTION_CACHE:
-                            agent_last_obs[agent] = observation[agent]
-                            agent_last_action[agent] = action
+                    if USE_ACTION_CACHE:
+                        agent_last_obs[agent_handle] = observation[agent_handle]
+                        agent_last_action[agent_handle] = action
 
                 policy.end_step()
                 agent_time = time.time() - time_start

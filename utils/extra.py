@@ -62,7 +62,7 @@ class Extra(ObservationBuilder):
         self.dead_lock_avoidance_agent = None
         if self.env is not None:
             self.env.dev_obs_dict = {}
-            self.dead_lock_avoidance_agent = DeadLockAvoidanceAgent(self.env, None, None)
+            self.dead_lock_avoidance_agent = DeadLockAvoidanceAgent(self.env, 5, False)
 
         self.switches = {}
         self.switches_neighbours = {}
@@ -195,7 +195,8 @@ class Extra(ObservationBuilder):
         local_walker.walk_to_target(handle, new_position, branch_direction)
         shortest_distance_agent_map, _ = self.dead_lock_avoidance_agent.shortest_distance_walker.getData()
         my_shortest_path_to_check = shortest_distance_agent_map[handle]
-        next_step_ok = self.dead_lock_avoidance_agent.check_agent_can_move(my_shortest_path_to_check,
+        next_step_ok = self.dead_lock_avoidance_agent.check_agent_can_move(handle,
+                                                                           my_shortest_path_to_check,
                                                                            opp_agents,
                                                                            same_agents,
                                                                            full_shortest_distance_agent_map)

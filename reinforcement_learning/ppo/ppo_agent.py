@@ -1,3 +1,4 @@
+import copy
 import os
 
 import numpy as np
@@ -129,3 +130,10 @@ class PPOAgent(Policy):
             except:
                 print(" >> failed!")
                 pass
+
+    def clone(self):
+        policy = PPOAgent(self.state_size, self.action_size, self.num_agents)
+        policy.policy = copy.deepcopy(self.policy)
+        policy.old_policy = copy.deepcopy(self.old_policy)
+        policy.optimizer = copy.deepcopy(self.optimizer)
+        return self

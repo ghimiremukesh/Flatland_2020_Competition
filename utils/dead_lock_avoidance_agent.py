@@ -67,11 +67,13 @@ class DeadlockAvoidanceShortestDistanceWalker(ShortestDistanceWalker):
 
 
 class DeadLockAvoidanceAgent(Policy):
-    def __init__(self, env: RailEnv, show_debug_plot=False):
+    def __init__(self, env: RailEnv, action_size, show_debug_plot=False):
         self.env = env
         self.memory = None
         self.loss = 0
+        self.action_size = action_size
         self.agent_can_move = {}
+        self.agent_can_move_value = {}
         self.switches = {}
         self.show_debug_plot = show_debug_plot
 
@@ -79,11 +81,18 @@ class DeadLockAvoidanceAgent(Policy):
         pass
 
     def act(self, state, eps=0.):
+        # Epsilon-greedy action selection
+        if np.random.random() < eps:
+            return np.random.choice(np.arange(self.action_size))
+
         # agent = self.env.agents[state[0]]
         check = self.agent_can_move.get(state[0], None)
         if check is None:
             return RailEnvActions.STOP_MOVING
         return check[3]
+
+    def get_agent_can_move_value(self, handle):
+        return self.agent_can_move_value.get(handle, np.inf)
 
     def reset(self):
         self.agent_positions = None
@@ -136,7 +145,8 @@ class DeadLockAvoidanceAgent(Policy):
         for handle in range(self.env.get_num_agents()):
             agent = self.env.agents[handle]
             if agent.status < RailAgentStatus.DONE:
-                next_step_ok = self.check_agent_can_move(shortest_distance_agent_map[handle],
+                next_step_ok = self.check_agent_can_move(handle,
+                                                         shortest_distance_agent_map[handle],
                                                          self.shortest_distance_walker.same_agent_map.get(handle, []),
                                                          self.shortest_distance_walker.opp_agent_map.get(handle, []),
                                                          full_shortest_distance_agent_map)
@@ -154,6 +164,7 @@ class DeadLockAvoidanceAgent(Policy):
             plt.pause(0.01)
 
     def check_agent_can_move(self,
+                             handle,
                              my_shortest_walking_path,
                              same_agents,
                              opp_agents,
@@ -166,6 +177,9 @@ class DeadLockAvoidanceAgent(Policy):
             delta = ((my_shortest_walking_path - opp - agent_positions_map) > 0).astype(int)
             if np.sum(delta) < (3 + len(opp_agents)):
                 next_step_ok = False
+            v = self.agent_can_move_value.get(handle, np.inf)
+            v = min(v, np.sum(delta))
+            self.agent_can_move_value.update({handle: v})
         return next_step_ok
 
     def save(self, filename):

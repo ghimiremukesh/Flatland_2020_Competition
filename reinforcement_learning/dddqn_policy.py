@@ -44,8 +44,10 @@ class DDDQNPolicy(Policy):
             # print("🐢 Using CPU")
 
         # Q-Network
-        self.qnetwork_local = DuelingQNetwork(state_size, action_size, hidsize1=self.hidsize, hidsize2=self.hidsize).to(
-            self.device)
+        self.qnetwork_local = DuelingQNetwork(state_size,
+                                              action_size,
+                                              hidsize1=self.hidsize,
+                                              hidsize2=self.hidsize).to(self.device)
 
         if not evaluation_mode:
             self.qnetwork_target = copy.deepcopy(self.qnetwork_local)

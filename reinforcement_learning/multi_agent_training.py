@@ -9,16 +9,20 @@ from pprint import pprint
 
 import numpy as np
 import psutil
+from flatland.core.grid.grid4_utils import get_new_position
+from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.malfunction_generators import malfunction_from_params, MalfunctionParameters
 from flatland.envs.observations import TreeObsForRailEnv
 from flatland.envs.predictions import ShortestPathPredictorForRailEnv
-from flatland.envs.rail_env import RailEnv, RailEnvActions
+from flatland.envs.rail_env import RailEnv, RailEnvActions, fast_count_nonzero
 from flatland.envs.rail_generators import sparse_rail_generator
 from flatland.envs.schedule_generators import sparse_schedule_generator
 from flatland.utils.rendertools import RenderTool
 from torch.utils.tensorboard import SummaryWriter
 
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
+from reinforcement_learning.ppo.ppo_agent import PPOAgent
+from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
 base_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(base_dir))
@@ -73,6 +77,41 @@ def create_rail_env(env_params, tree_observation):
         obs_builder_object=tree_observation,
         random_seed=seed
     )
+
+
+def get_agent_positions(env):
+    agent_positions: np.ndarray = np.full((env.height, env.width), -1)
+    for agent_handle in env.get_agent_handles():
+        agent = env.agents[agent_handle]
+        if agent.status == RailAgentStatus.ACTIVE:
+            position = agent.position
+            if position is None:
+                position = agent.initial_position
+            agent_positions[position] = agent_handle
+    return agent_positions
+
+
+def check_for_dealock(handle, env, agent_positions):
+    agent = env.agents[handle]
+    if agent.status == RailAgentStatus.DONE or agent.status == RailAgentStatus.DONE_REMOVED:
+        return False
+
+    position = agent.position
+    if position is None:
+        position = agent.initial_position
+    possible_transitions = env.rail.get_transitions(*position, agent.direction)
+    num_transitions = fast_count_nonzero(possible_transitions)
+    for dir_loop in range(4):
+        if possible_transitions[dir_loop] == 1:
+            new_position = get_new_position(position, dir_loop)
+            opposite_agent = agent_positions[new_position]
+            if opposite_agent != handle and opposite_agent != -1:
+                num_transitions -= 1
+            else:
+                return False
+
+    is_deadlock = num_transitions <= 0
+    return is_deadlock
 
 
 def train_agent(train_params, train_env_params, eval_env_params, obs_params):
@@ -150,10 +189,6 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         # Calculate the state size given the depth of the tree observation and the number of features
         state_size = tree_observation.observation_dim
 
-    # Setup renderer
-    if train_params.render:
-        env_renderer = RenderTool(train_env, gl="PGL")
-
     # The action space of flatland is 5 discrete actions
     action_size = 5
 
@@ -174,13 +209,15 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     # IF USE_SINGLE_AGENT_TRAINING is set and the episode_idx <= MAX_SINGLE_TRAINING_ITERATION then
     # the training gets done with single use. Each UPDATE_POLICY2_N_EPISODE the second policy get replaced
     # with the policy (the one which get trained).
-    USE_SINGLE_AGENT_TRAINING = True
-    MAX_SINGLE_TRAINING_ITERATION = 1000
+    USE_SINGLE_AGENT_TRAINING = False
+    MAX_SINGLE_TRAINING_ITERATION = 100000
     UPDATE_POLICY2_N_EPISODE = 200
+    USE_DEADLOCK_AVOIDANCE_AS_POLICY2 = False
 
     # Double Dueling DQN policy
     policy = DDDQNPolicy(state_size, action_size, train_params)
-    # policy = PPOAgent(state_size, action_size, n_agents)
+    if False:
+        policy = PPOAgent(state_size, action_size, n_agents)
     # Load existing policy
     if train_params.load_policy is not "":
         policy.load(train_params.load_policy)
@@ -231,17 +268,23 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Reset environment
         reset_timer.start()
-        train_env_params.n_agents = episode_idx % n_agents + 1
+        number_of_agents = min(1 + round(n_agents * (1.0 - 0.9985 ** episode_idx)), n_agents)
+        train_env_params.n_agents = episode_idx % number_of_agents + 1
         train_env = create_rail_env(train_env_params, tree_observation)
         obs, info = train_env.reset(regenerate_rail=True, regenerate_schedule=True)
         policy.reset()
 
-        if episode_idx % UPDATE_POLICY2_N_EPISODE == 0:
-            policy2 = policy.clone()
+        if USE_DEADLOCK_AVOIDANCE_AS_POLICY2:
+            policy2 = DeadLockAvoidanceAgent(train_env, action_size)
+        else:
+            if episode_idx % UPDATE_POLICY2_N_EPISODE == 0:
+                policy2 = policy.clone()
 
         reset_timer.end()
 
         if train_params.render:
+            # Setup renderer
+            env_renderer = RenderTool(train_env, gl="PGL")
             env_renderer.set_new_rail()
 
         score = 0
@@ -249,11 +292,12 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         actions_taken = []
 
         # Build initial agent-specific observations
-        for agent in train_env.get_agent_handles():
-            if tree_observation.check_is_observation_valid(obs[agent]):
-                agent_obs[agent] = tree_observation.get_normalized_observation(obs[agent], observation_tree_depth,
-                                                                               observation_radius=observation_radius)
-                agent_prev_obs[agent] = agent_obs[agent].copy()
+        for agent_handle in train_env.get_agent_handles():
+            if tree_observation.check_is_observation_valid(obs[agent_handle]):
+                agent_obs[agent_handle] = tree_observation.get_normalized_observation(obs[agent_handle],
+                                                                                      observation_tree_depth,
+                                                                                      observation_radius=observation_radius)
+                agent_prev_obs[agent_handle] = agent_obs[agent_handle].copy()
 
         # Max number of steps per episode
         # This is the official formula used during evaluations
@@ -271,21 +315,26 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             inference_timer.start()
             policy.start_step()
             policy2.start_step()
-            for agent in train_env.get_agent_handles():
-                if info['action_required'][agent]:
-                    update_values[agent] = True
-                    if agent in agent_to_learn or not USE_SINGLE_AGENT_TRAINING:
-                        action = policy.act(agent_obs[agent], eps=eps_start)
+            for agent_handle in train_env.get_agent_handles():
+                agent = train_env.agents[agent_handle]
+                if info['action_required'][agent_handle]:
+                    update_values[agent_handle] = True
+                    if (agent_handle in agent_to_learn) or (not USE_SINGLE_AGENT_TRAINING):
+                        action = policy.act(agent_obs[agent_handle], eps=eps_start)
                     else:
-                        action = policy2.act(agent_obs[agent], eps=eps_start)
+                        if USE_DEADLOCK_AVOIDANCE_AS_POLICY2:
+                            action = policy2.act([agent_handle], eps=0.0)
+                        else:
+                            action = policy2.act(agent_obs[agent_handle], eps=0.0)
+
                     action_count[action] += 1
                     actions_taken.append(action)
                 else:
                     # An action is not required if the train hasn't joined the railway network,
                     # if it already reached its target, or if is currently malfunctioning.
-                    update_values[agent] = False
+                    update_values[agent_handle] = False
                     action = 0
-                action_dict.update({agent: action})
+                action_dict.update({agent_handle: action})
             policy.end_step()
             policy2.end_step()
             inference_timer.end()
@@ -294,23 +343,18 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             step_timer.start()
             next_obs, all_rewards, done, info = train_env.step(action_dict)
 
-            if True:
-                for agent in train_env.get_agent_handles():
-                    act = action_dict.get(agent, RailEnvActions.DO_NOTHING)
-                    if agent_obs[agent][5] == 1:
-                        if agent_obs[agent][26] == 1:
-                            if act != RailEnvActions.STOP_MOVING:
-                                all_rewards[agent] -= 10.0
-                        if agent_obs[agent][27] == 1:
-                            if act == RailEnvActions.MOVE_LEFT or \
-                                    act == RailEnvActions.MOVE_RIGHT or \
-                                    act == RailEnvActions.DO_NOTHING:
-                                all_rewards[agent] -= 1.0
-
+            # Dead-lock found -> rewards shaping
+            agent_positions = get_agent_positions(train_env)
+            for agent_handle in train_env.get_agent_handles():
+                agent = train_env.agents[agent_handle]
+                act = action_dict.get(agent_handle, RailEnvActions.MOVE_FORWARD)
+                if agent.status == RailAgentStatus.ACTIVE:
+                    if check_for_dealock(agent_handle, train_env, agent_positions):
+                        all_rewards[agent_handle] -= 5.0
             step_timer.end()
 
             # Render an episode at some interval
-            if train_params.render and episode_idx % checkpoint_interval == 0:
+            if train_params.render:
                 env_renderer.render_env(
                     show=True,
                     frames=False,
@@ -319,29 +363,31 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 )
 
             # Update replay buffer and train agent
-            for agent in train_env.get_agent_handles():
-                if update_values[agent] or done['__all__']:
+            for agent_handle in train_env.get_agent_handles():
+                if update_values[agent_handle] or done['__all__']:
                     # Only learn from timesteps where somethings happened
                     learn_timer.start()
-                    if agent in agent_to_learn or not USE_SINGLE_AGENT_TRAINING:
-                        policy.step(agent,
-                                    agent_prev_obs[agent], agent_prev_action[agent], all_rewards[agent],
-                                    agent_obs[agent],
-                                    done[agent])
+                    if (agent_handle in agent_to_learn) or (not USE_SINGLE_AGENT_TRAINING):
+                        policy.step(agent_handle,
+                                    agent_prev_obs[agent_handle],
+                                    agent_prev_action[agent_handle],
+                                    all_rewards[agent_handle],
+                                    agent_obs[agent_handle],
+                                    done[agent_handle])
                     learn_timer.end()
 
-                    agent_prev_obs[agent] = agent_obs[agent].copy()
-                    agent_prev_action[agent] = action_dict[agent]
+                    agent_prev_obs[agent_handle] = agent_obs[agent_handle].copy()
+                    agent_prev_action[agent_handle] = action_dict[agent_handle]
 
                 # Preprocess the new observations
-                if tree_observation.check_is_observation_valid(next_obs[agent]):
+                if tree_observation.check_is_observation_valid(next_obs[agent_handle]):
                     preproc_timer.start()
-                    agent_obs[agent] = tree_observation.get_normalized_observation(next_obs[agent],
-                                                                                   observation_tree_depth,
-                                                                                   observation_radius=observation_radius)
+                    agent_obs[agent_handle] = tree_observation.get_normalized_observation(next_obs[agent_handle],
+                                                                                          observation_tree_depth,
+                                                                                          observation_radius=observation_radius)
                     preproc_timer.end()
 
-                score += all_rewards[agent]
+                score += all_rewards[agent_handle]
 
             nb_steps = step
 
@@ -362,6 +408,9 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         smoothed_normalized_score = np.mean(scores_window)
         smoothed_completion = np.mean(completion_window)
 
+        if train_params.render:
+            env_renderer.close_window()
+
         # Print logs
         if episode_idx % checkpoint_interval == 0:
             policy.save('./checkpoints/' + training_id + '-' + str(episode_idx) + '.pth')
@@ -369,14 +418,12 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             if save_replay_buffer:
                 policy.save_replay_buffer('./replay_buffers/' + training_id + '-' + str(episode_idx) + '.pkl')
 
-            if train_params.render:
-                env_renderer.close_window()
-
             # reset action count
             action_count = [0] * action_size
 
         print(
             '\r🚂 Episode {}'
+            '\t 🚉 nAgents {}'
             '\t 🏆 Score: {:7.3f}'
             ' Avg: {:7.3f}'
             '\t 💯 Done: {:6.2f}%'
@@ -384,6 +431,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             '\t 🎲 Epsilon: {:.3f} '
             '\t 🔀 Action Probs: {}'.format(
                 episode_idx,
+                train_env_params.n_agents,
                 normalized_score,
                 smoothed_normalized_score,
                 100 * completion,
@@ -507,7 +555,7 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 
         nb_steps.append(final_step)
 
-    print("\t✅ Eval: score {:.3f} done {:.1f}%".format(np.mean(scores), np.mean(completions) * 100.0))
+    print(" ✅ Eval: score {:.3f} done {:.1f}%".format(np.mean(scores), np.mean(completions) * 100.0))
 
     return scores, completions, nb_steps
 
