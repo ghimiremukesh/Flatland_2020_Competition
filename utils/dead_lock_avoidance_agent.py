@@ -67,7 +67,7 @@ class DeadlockAvoidanceShortestDistanceWalker(ShortestDistanceWalker):
 
 
 class DeadLockAvoidanceAgent(Policy):
-    def __init__(self, env: RailEnv, action_size, show_debug_plot=False):
+    def _init__(self, env: RailEnv, action_size, show_debug_plot=False):
         self.env = env
         self.memory = None
         self.loss = 0
