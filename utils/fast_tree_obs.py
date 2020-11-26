@@ -36,7 +36,7 @@ class FastTreeObs(ObservationBuilder):
         self.debug_render_path_list = []
         if self.env is not None:
             self.find_all_cell_where_agent_can_choose()
-            self.dead_lock_avoidance_agent = DeadLockAvoidanceAgent(self.env, 5)
+            self.dead_lock_avoidance_agent = DeadLockAvoidanceAgent(self.env, 5, False)
         else:
             self.dead_lock_avoidance_agent = None
 
