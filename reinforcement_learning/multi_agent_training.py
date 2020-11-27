@@ -268,8 +268,9 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Reset environment
         reset_timer.start()
-        number_of_agents = min(1 + round(n_agents * (1.0 - 0.9985 ** episode_idx)), n_agents)
+        number_of_agents = int(min(n_agents, 1 + np.floor(episode_idx / 200)))
         train_env_params.n_agents = episode_idx % number_of_agents + 1
+
         train_env = create_rail_env(train_env_params, tree_observation)
         obs, info = train_env.reset(regenerate_rail=True, regenerate_schedule=True)
         policy.reset()
@@ -343,14 +344,29 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             step_timer.start()
             next_obs, all_rewards, done, info = train_env.step(action_dict)
 
-            # Dead-lock found -> rewards shaping
-            agent_positions = get_agent_positions(train_env)
-            for agent_handle in train_env.get_agent_handles():
-                agent = train_env.agents[agent_handle]
-                act = action_dict.get(agent_handle, RailEnvActions.MOVE_FORWARD)
-                if agent.status == RailAgentStatus.ACTIVE:
-                    if check_for_dealock(agent_handle, train_env, agent_positions):
+            # Reward shaping .Dead-lock .NotMoving .NotStarted
+            if False:
+                agent_positions = get_agent_positions(train_env)
+                for agent_handle in train_env.get_agent_handles():
+                    agent = train_env.agents[agent_handle]
+
+                    act = action_dict.get(agent_handle, RailEnvActions.MOVE_FORWARD)
+                    if agent.status == RailAgentStatus.ACTIVE:
+                        pos = agent.position
+                        dir = agent.direction
+                        possible_transitions = train_env.rail.get_transitions(*pos, dir)
+                        num_transitions = fast_count_nonzero(possible_transitions)
+                        if act == RailEnvActions.STOP_MOVING:
+                            all_rewards[agent_handle] -= 2.0
+
+                        if num_transitions == 1:
+                            if act != RailEnvActions.MOVE_FORWARD:
+                                all_rewards[agent_handle] -= 1.0
+                        if check_for_dealock(agent_handle, train_env, agent_positions):
+                            all_rewards[agent_handle] -= 5.0
+                    elif agent.status == RailAgentStatus.READY_TO_DEPART:
                         all_rewards[agent_handle] -= 5.0
+
             step_timer.end()
 
             # Render an episode at some interval
@@ -563,14 +579,14 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=2000, type=int)
-    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=2,
+    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=1,
                         type=int)
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=1,
                         type=int)
-    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=2, type=int)
+    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=5, type=int)
     parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=100, type=int)
-    parser.add_argument("--eps_start", help="max exploration", default=0.1, type=float)
-    parser.add_argument("--eps_end", help="min exploration", default=0.01, type=float)
+    parser.add_argument("--eps_start", help="max exploration", default=1.0, type=float)
+    parser.add_argument("--eps_end", help="min exploration", default=0.05, type=float)
     parser.add_argument("--eps_decay", help="exploration decay", default=0.9975, type=float)
     parser.add_argument("--buffer_size", help="replay buffer size", default=int(1e7), type=int)
     parser.add_argument("--buffer_min_size", help="min buffer size to start training", default=0, type=int)
@@ -618,8 +634,8 @@ if __name__ == "__main__":
         {
             # Test_2
             "n_agents": 20,
-            "x_dim": 30,
-            "y_dim": 30,
+            "x_dim": 35,
+            "y_dim": 35,
             "n_cities": 3,
             "max_rails_between_cities": 2,
             "max_rails_in_city": 3,

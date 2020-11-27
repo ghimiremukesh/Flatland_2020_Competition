@@ -18,7 +18,6 @@ EPSILON = 0.500 # Sum Normalized Reward :  3.754660231871272 (primary score)
 EPSILON = 1.000 # Sum Normalized Reward :  1.397180159192391 (primary score)
 '''
 
-
 import sys
 import time
 from argparse import Namespace
@@ -26,6 +25,7 @@ from pathlib import Path
 
 import numpy as np
 from flatland.core.env_observation_builder import DummyObservationBuilder
+from flatland.envs.observations import TreeObsForRailEnv
 from flatland.envs.predictions import ShortestPathPredictorForRailEnv
 from flatland.evaluators.client import FlatlandRemoteClient
 from flatland.evaluators.client import TimeoutException
@@ -33,6 +33,7 @@ from flatland.evaluators.client import TimeoutException
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import check_if_all_blocked
 from utils.fast_tree_obs import FastTreeObs
+from utils.observation_utils import normalize_observation
 
 base_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(base_dir))
@@ -44,18 +45,22 @@ from reinforcement_learning.dddqn_policy import DDDQNPolicy
 
 # Print per-step logs
 VERBOSE = True
+USE_FAST_TREE_OBS = True
 
 # Checkpoint to use (remember to push it!)
 checkpoint = "./checkpoints/201124171810-7800.pth"  # 18.249244799876152 DEPTH=2 AGENTS=10
+# checkpoint = "./checkpoints/201126150143-5200.pth"  # 18.249244799876152 DEPTH=2 AGENTS=10
+# checkpoint = "./checkpoints/201126160144-2000.pth"  # 18.249244799876152 DEPTH=2 AGENTS=10
+checkpoint = "./checkpoints/201127160352-2000.pth"
 
-EPSILON = 0.01
+EPSILON = 0.005
 
 # Use last action cache
 USE_ACTION_CACHE = False
-USE_DEAD_LOCK_AVOIDANCE_AGENT = False # 21.54485505223213
+USE_DEAD_LOCK_AVOIDANCE_AGENT = False  # 21.54485505223213
 
 # Observation parameters (must match training parameters!)
-observation_tree_depth = 2
+observation_tree_depth = 1
 observation_radius = 10
 observation_max_path_depth = 30
 
@@ -65,10 +70,30 @@ remote_client = FlatlandRemoteClient()
 
 # Observation builder
 predictor = ShortestPathPredictorForRailEnv(observation_max_path_depth)
-tree_observation = FastTreeObs(max_depth=observation_tree_depth)
+if USE_FAST_TREEOBS:
+    def check_is_observation_valid(observation):
+        return True
 
-# Calculates state and action sizes
-state_size = tree_observation.observation_dim
+    def get_normalized_observation(observation, tree_depth: int, observation_radius=0):
+        return observation
+
+    tree_observation = FastTreeObs(max_depth=observation_tree_depth)
+    state_size = tree_observation.observation_dim
+else:
+    def check_is_observation_valid(observation):
+        return observation
+
+
+    def get_normalized_observation(observation, tree_depth: int, observation_radius=0):
+        return normalize_observation(observation, tree_depth, observation_radius)
+
+
+    tree_observation = TreeObsForRailEnv(max_depth=observation_tree_depth, predictor=predictor)
+    # Calculate the state size given the depth of the tree observation and the number of features
+    n_features_per_node = tree_observation.observation_dim
+    n_nodes = sum([np.power(4, i) for i in range(observation_tree_depth + 1)])
+    state_size = n_features_per_node * n_nodes
+
 action_size = 5
 
 # Creates the policy. No GPU on evaluation server.
@@ -159,7 +184,11 @@ while True:
                             action = agent_last_action[agent_handle]
                             nb_hit += 1
                         else:
-                            action = policy.act(observation[agent_handle], eps=EPSILON)
+                            normalized_observation = get_normalized_observation(observation[agent_handle],
+                                                                                observation_tree_depth,
+                                                                                observation_radius=observation_radius)
+
+                            action = policy.act(normalized_observation, eps=EPSILON)
 
                     action_dict[agent_handle] = action
 
