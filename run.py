@@ -30,6 +30,7 @@ from flatland.envs.predictions import ShortestPathPredictorForRailEnv
 from flatland.evaluators.client import FlatlandRemoteClient
 from flatland.evaluators.client import TimeoutException
 
+from reinforcement_learning.ppo.ppo_agent import PPOAgent
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import check_if_all_blocked
 from utils.fast_tree_obs import FastTreeObs
@@ -46,12 +47,14 @@ from reinforcement_learning.dddqn_policy import DDDQNPolicy
 # Print per-step logs
 VERBOSE = True
 USE_FAST_TREEOBS = True
+USE_PPO_AGENT = True
 
 # Checkpoint to use (remember to push it!)
 checkpoint = "./checkpoints/201124171810-7800.pth"  # 18.249244799876152 DEPTH=2 AGENTS=10
 # checkpoint = "./checkpoints/201126150143-5200.pth"  # 18.249244799876152 DEPTH=2 AGENTS=10
 # checkpoint = "./checkpoints/201126160144-2000.pth"  # 18.249244799876152 DEPTH=2 AGENTS=10
 checkpoint = "./checkpoints/201127160352-2000.pth"
+checkpoint = "./checkpoints/201130083154-2000.pth"
 
 EPSILON = 0.005
 
@@ -99,8 +102,10 @@ else:
 action_size = 5
 
 # Creates the policy. No GPU on evaluation server.
-policy = DDDQNPolicy(state_size, action_size, Namespace(**{'use_gpu': False}), evaluation_mode=True)
-# policy = PPOAgent(state_size, action_size, 10)
+if not USE_PPO_AGENT:
+    policy = DDDQNPolicy(state_size, action_size, Namespace(**{'use_gpu': False}), evaluation_mode=True)
+else:
+    policy = PPOAgent(state_size, action_size, 10)
 policy.load(checkpoint)
 
 #####################################################################

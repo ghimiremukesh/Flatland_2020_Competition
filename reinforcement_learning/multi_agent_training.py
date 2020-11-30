@@ -208,7 +208,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
     # Double Dueling DQN policy
     policy = DDDQNPolicy(state_size, action_size, train_params)
-    if False:
+    if True:
         policy = PPOAgent(state_size, action_size, n_agents)
     # Load existing policy
     if train_params.load_policy is not "":
@@ -546,10 +546,10 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=2000, type=int)
-    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=1,
+    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=10000, type=int)
+    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=0,
                         type=int)
-    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=1,
+    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
                         type=int)
     parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=5, type=int)
     parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=100, type=int)
@@ -573,7 +573,7 @@ if __name__ == "__main__":
     parser.add_argument("--load_policy", help="policy filename (reference) to load", default="", type=str)
     parser.add_argument("--use_fast_tree_observation", help="use FastTreeObs instead of stock TreeObs",
                         action='store_true')
-    parser.add_argument("--max_depth", help="max depth", default=1, type=int)
+    parser.add_argument("--max_depth", help="max depth", default=2, type=int)
 
     training_params = parser.parse_args()
     env_params = [
