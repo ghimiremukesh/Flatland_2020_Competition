@@ -1,5 +1,4 @@
 import numpy as np
-from flatland.envs.rail_env import RailEnvActions
 
 from reinforcement_learning.policy import Policy
 from reinforcement_learning.ppo.ppo_agent import PPOAgent
@@ -54,10 +53,10 @@ class MultiPolicy(Policy):
         self.ppo_policy.test()
         self.deadlock_avoidance_policy.test()
 
-    def start_step(self):
-        self.deadlock_avoidance_policy.start_step()
-        self.ppo_policy.start_step()
+    def start_step(self, train):
+        self.deadlock_avoidance_policy.start_step(train)
+        self.ppo_policy.start_step(train)
 
-    def end_step(self):
-        self.deadlock_avoidance_policy.end_step()
-        self.ppo_policy.end_step()
+    def end_step(self, train):
+        self.deadlock_avoidance_policy.end_step(train)
+        self.ppo_policy.end_step(train)

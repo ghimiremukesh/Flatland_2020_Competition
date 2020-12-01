@@ -76,7 +76,7 @@ class FastTreeObs(ObservationBuilder):
                                     self.switches_neighbours[pos].append(dir)
 
     def find_all_cell_where_agent_can_choose(self):
-        # prepare the data - collect all cells where the agent can choose more than FORWARD/STOP.
+        # prepare the memory - collect all cells where the agent can choose more than FORWARD/STOP.
         self.find_all_switches()
         self.find_all_switch_neighbours()
 
@@ -243,9 +243,9 @@ class FastTreeObs(ObservationBuilder):
         return has_opp_agent, has_same_agent, has_target, visited, min_dist
 
     def get_many(self, handles: Optional[List[int]] = None):
-        self.dead_lock_avoidance_agent.start_step()
+        self.dead_lock_avoidance_agent.start_step(train=False)
         observations = super().get_many(handles)
-        self.dead_lock_avoidance_agent.end_step()
+        self.dead_lock_avoidance_agent.end_step(train=False)
         return observations
 
     def get(self, handle):

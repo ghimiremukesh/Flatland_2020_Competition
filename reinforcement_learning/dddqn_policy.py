@@ -16,8 +16,10 @@ from reinforcement_learning.policy import Policy
 class DDDQNPolicy(Policy):
     """Dueling Double DQN policy"""
 
-    def __init__(self, state_size, action_size, parameters, evaluation_mode=False):
-        self.parameters = parameters
+    def __init__(self, state_size, action_size, in_parameters, evaluation_mode=False):
+        super(Policy, self).__init__()
+
+        self.ddqn_parameters = in_parameters
         self.evaluation_mode = evaluation_mode
 
         self.state_size = state_size
@@ -26,17 +28,17 @@ class DDDQNPolicy(Policy):
         self.hidsize = 128
 
         if not evaluation_mode:
-            self.hidsize = parameters.hidden_size
-            self.buffer_size = parameters.buffer_size
-            self.batch_size = parameters.batch_size
-            self.update_every = parameters.update_every
-            self.learning_rate = parameters.learning_rate
-            self.tau = parameters.tau
-            self.gamma = parameters.gamma
-            self.buffer_min_size = parameters.buffer_min_size
+            self.hidsize = self.ddqn_parameters.hidden_size
+            self.buffer_size = self.ddqn_parameters.buffer_size
+            self.batch_size = self.ddqn_parameters.batch_size
+            self.update_every = self.ddqn_parameters.update_every
+            self.learning_rate = self.ddqn_parameters.learning_rate
+            self.tau = self.ddqn_parameters.tau
+            self.gamma = self.ddqn_parameters.gamma
+            self.buffer_min_size = self.ddqn_parameters.buffer_min_size
 
             # Device
-        if parameters.use_gpu and torch.cuda.is_available():
+        if self.ddqn_parameters.use_gpu and torch.cuda.is_available():
             self.device = torch.device("cuda:0")
             # print("🐇 Using GPU")
         else:
@@ -153,7 +155,7 @@ class DDDQNPolicy(Policy):
         self._learn()
 
     def clone(self):
-        me = DDDQNPolicy(self.state_size, self.action_size, self.parameters, evaluation_mode=True)
+        me = DDDQNPolicy(self.state_size, self.action_size, self.ddqn_parameters, evaluation_mode=True)
         me.qnetwork_target = copy.deepcopy(self.qnetwork_local)
         me.qnetwork_target = copy.deepcopy(self.qnetwork_target)
         return me

@@ -110,12 +110,12 @@ class DeadLockAvoidanceAgent(Policy):
                         else:
                             self.switches[pos].append(dir)
 
-    def start_step(self):
+    def start_step(self, train):
         self.build_agent_position_map()
         self.shortest_distance_mapper()
         self.extract_agent_can_move()
 
-    def end_step(self):
+    def end_step(self, train):
         pass
 
     def get_actions(self):

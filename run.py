@@ -163,6 +163,7 @@ while True:
     if USE_DEAD_LOCK_AVOIDANCE_AGENT:
         policy = DeadLockAvoidanceAgent(local_env, action_size)
 
+    policy.start_episode(train=False)
     while True:
         try:
             #####################################################################
@@ -175,7 +176,7 @@ while True:
             if not check_if_all_blocked(env=local_env):
                 time_start = time.time()
                 action_dict = {}
-                policy.start_step()
+                policy.start_step(train=False)
                 if USE_DEAD_LOCK_AVOIDANCE_AGENT:
                     observation = np.zeros((local_env.get_num_agents(), 2))
                 for agent_handle in range(nb_agents):
@@ -203,7 +204,7 @@ while True:
                         agent_last_obs[agent_handle] = observation[agent_handle]
                         agent_last_action[agent_handle] = action
 
-                policy.end_step()
+                policy.end_step(train=False)
                 agent_time = time.time() - time_start
                 time_taken_by_controller.append(agent_time)
 
@@ -253,6 +254,8 @@ while True:
             # The whole evaluation will be stopped if there are 10 consecutive timeouts.
             print("Timeout! Will skip this episode and go to the next.", err)
             break
+
+    policy.end_episode(train=False)
 
     np_time_taken_by_controller = np.array(time_taken_by_controller)
     np_time_taken_per_step = np.array(time_taken_per_step)

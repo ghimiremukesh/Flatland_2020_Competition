@@ -22,7 +22,6 @@ from torch.utils.tensorboard import SummaryWriter
 
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
 from reinforcement_learning.ppo.ppo_agent import PPOAgent
-from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
 base_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(base_dir))
@@ -208,7 +207,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
     # Double Dueling DQN policy
     policy = DDDQNPolicy(state_size, action_size, train_params)
-    if True:
+    if False:
         policy = PPOAgent(state_size, action_size, n_agents)
     # Load existing policy
     if train_params.load_policy is not "":
@@ -257,7 +256,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Reset environment
         reset_timer.start()
-        number_of_agents = int(min(n_agents, 1 + np.floor(episode_idx / 200)))
+        number_of_agents = 2 # int(min(n_agents, 1 + np.floor(episode_idx / 200)))
         train_env_params.n_agents = episode_idx % number_of_agents + 1
 
         train_env = create_rail_env(train_env_params, tree_observation)
@@ -289,9 +288,10 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         max_steps = train_env._max_episode_steps
 
         # Run episode
+        policy.start_episode(train=True)
         for step in range(max_steps - 1):
             inference_timer.start()
-            policy.start_step()
+            policy.start_step(train=True)
             for agent_handle in train_env.get_agent_handles():
                 agent = train_env.agents[agent_handle]
                 if info['action_required'][agent_handle]:
@@ -306,7 +306,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                     update_values[agent_handle] = False
                     action = 0
                 action_dict.update({agent_handle: action})
-            policy.end_step()
+            policy.end_step(train=True)
             inference_timer.end()
 
             # Environment step
@@ -378,6 +378,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             if done['__all__']:
                 break
 
+        policy.end_episode(train=True)
         # Epsilon decay
         eps_start = max(eps_end, eps_decay * eps_start)
 
@@ -507,8 +508,9 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
         obs, info = env.reset(regenerate_rail=True, regenerate_schedule=True)
         final_step = 0
 
+        policy.start_episode(train=False)
         for step in range(max_steps - 1):
-            policy.start_step()
+            policy.start_step(train=False)
             for agent in env.get_agent_handles():
                 if tree_observation.check_is_observation_valid(agent_obs[agent]):
                     agent_obs[agent] = tree_observation.get_normalized_observation(obs[agent], tree_depth=tree_depth,
@@ -519,7 +521,7 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
                     if tree_observation.check_is_observation_valid(agent_obs[agent]):
                         action = policy.act(agent_obs[agent], eps=0.0)
                 action_dict.update({agent: action})
-            policy.end_step()
+            policy.end_step(train=False)
             obs, all_rewards, done, info = env.step(action_dict)
 
             for agent in env.get_agent_handles():
@@ -529,7 +531,7 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 
             if done['__all__']:
                 break
-
+        policy.end_episode(train=False)
         normalized_score = score / (max_steps * env.get_num_agents())
         scores.append(normalized_score)
 
@@ -546,7 +548,7 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=10000, type=int)
+    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=2000, type=int)
     parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=0,
                         type=int)
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
