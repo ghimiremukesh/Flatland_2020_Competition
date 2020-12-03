@@ -105,7 +105,7 @@ action_size = 5
 if not USE_PPO_AGENT:
     policy = DDDQNPolicy(state_size, action_size, Namespace(**{'use_gpu': False}), evaluation_mode=True)
 else:
-    policy = PPOAgent(state_size, action_size, 10)
+    policy = PPOAgent(state_size, action_size)
 policy.load(checkpoint)
 
 #####################################################################

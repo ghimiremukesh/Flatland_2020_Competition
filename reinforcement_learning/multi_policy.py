@@ -12,7 +12,7 @@ class MultiPolicy(Policy):
         self.memory = []
         self.loss = 0
         self.deadlock_avoidance_policy = DeadLockAvoidanceAgent(env, action_size, False)
-        self.ppo_policy = PPOAgent(state_size + action_size, action_size, n_agents, env)
+        self.ppo_policy = PPOAgent(state_size + action_size, action_size)
 
     def load(self, filename):
         self.ppo_policy.load(filename)

@@ -207,8 +207,8 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
     # Double Dueling DQN policy
     policy = DDDQNPolicy(state_size, action_size, train_params)
-    if False:
-        policy = PPOAgent(state_size, action_size, n_agents)
+    if True:
+        policy = PPOAgent(state_size, action_size)
     # Load existing policy
     if train_params.load_policy is not "":
         policy.load(train_params.load_policy)
@@ -256,8 +256,8 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Reset environment
         reset_timer.start()
-        number_of_agents = 2 # int(min(n_agents, 1 + np.floor(episode_idx / 200)))
-        train_env_params.n_agents = episode_idx % number_of_agents + 1
+        number_of_agents = int(min(n_agents, 1 + np.floor(episode_idx / 200)))
+        train_env_params.n_agents = 1  # episode_idx % number_of_agents + 1
 
         train_env = create_rail_env(train_env_params, tree_observation)
         obs, info = train_env.reset(regenerate_rail=True, regenerate_schedule=True)
@@ -397,7 +397,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             env_renderer.close_window()
 
         # Print logs
-        if episode_idx % checkpoint_interval == 0:
+        if episode_idx % checkpoint_interval == 0 and episode_idx > 0:
             policy.save('./checkpoints/' + training_id + '-' + str(episode_idx) + '.pth')
 
             if save_replay_buffer:
@@ -548,7 +548,7 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=2000, type=int)
+    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=1000, type=int)
     parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=0,
                         type=int)
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
@@ -581,7 +581,7 @@ if __name__ == "__main__":
     env_params = [
         {
             # Test_0
-            "n_agents": 5,
+            "n_agents": 1,
             "x_dim": 25,
             "y_dim": 25,
             "n_cities": 2,
@@ -592,6 +592,17 @@ if __name__ == "__main__":
         },
         {
             # Test_1
+            "n_agents": 5,
+            "x_dim": 25,
+            "y_dim": 25,
+            "n_cities": 2,
+            "max_rails_between_cities": 2,
+            "max_rails_in_city": 3,
+            "malfunction_rate": 1 / 50,
+            "seed": 0
+        },
+        {
+            # Test_2
             "n_agents": 10,
             "x_dim": 30,
             "y_dim": 30,
@@ -602,7 +613,7 @@ if __name__ == "__main__":
             "seed": 0
         },
         {
-            # Test_2
+            # Test_3
             "n_agents": 20,
             "x_dim": 35,
             "y_dim": 35,
