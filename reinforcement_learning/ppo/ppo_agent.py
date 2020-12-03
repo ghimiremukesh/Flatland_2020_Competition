@@ -43,7 +43,7 @@ class DataBuffers:
 class PPOModelNetwork(nn.Module):
 
     def __init__(self, state_size, action_size, hidsize1=128, hidsize2=128):
-        super(DeepPPONetwork, self).__init__()
+        super(PPOModelNetwork, self).__init__()
         self.fc_layer_1_val = nn.Linear(state_size, hidsize1)
         self.shared_network = nn.Linear(hidsize1, hidsize2)
         self.fc_policy_pi = nn.Linear(hidsize2, action_size)
