@@ -12,11 +12,11 @@ from reinforcement_learning.policy import Policy
 
 LEARNING_RATE = 0.1e-4
 GAMMA = 0.98
-LMBDA = 0.9
-EPS_CLIP = 0.1
+LAMBDA = 0.9
+SURROGATE_EPS_CLIP = 0.01
 K_EPOCH = 3
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")#"cuda:0" if torch.cuda.is_available() else "cpu")
 print("device:", device)
 
 
@@ -215,7 +215,7 @@ class PPOAgent(Policy):
                     advantage_list = []
                     advantage_value = 0.0
                     for difference_to_expected_value_t in difference_to_expected_value_deltas[::-1]:
-                        advantage_value = LMBDA * advantage_value + difference_to_expected_value_t[0]
+                        advantage_value = LAMBDA * advantage_value + difference_to_expected_value_t[0]
                         advantage_list.append([advantage_value])
                     advantage_list.reverse()
                     advantages = torch.tensor(advantage_list, dtype=torch.float)
@@ -227,9 +227,11 @@ class PPOAgent(Policy):
                     # Normal Policy Gradient objective
                     surrogate_objective = ratios * advantages
                     # clipped version of Normal Policy Gradient objective
-                    clipped_surrogate_objective = torch.clamp(ratios * advantages, 1 - EPS_CLIP, 1 + EPS_CLIP)
+                    clipped_surrogate_objective = torch.clamp(ratios * advantages,
+                                                              1 - SURROGATE_EPS_CLIP,
+                                                              1 + SURROGATE_EPS_CLIP)
                     # create value loss function
-                    value_loss = F.mse_loss(self.value_network(states),
+                    value_loss = F.smooth_l1_loss(self.value_network(states),
                                             estimated_target_value.detach())
                     # create final loss function
                     loss = -torch.min(surrogate_objective, clipped_surrogate_objective) + value_loss

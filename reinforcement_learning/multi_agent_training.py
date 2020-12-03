@@ -257,7 +257,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         # Reset environment
         reset_timer.start()
         number_of_agents = int(min(n_agents, 1 + np.floor(episode_idx / 200)))
-        train_env_params.n_agents = 1  # episode_idx % number_of_agents + 1
+        train_env_params.n_agents = episode_idx % number_of_agents + 1
 
         train_env = create_rail_env(train_env_params, tree_observation)
         obs, info = train_env.reset(regenerate_rail=True, regenerate_schedule=True)
@@ -314,7 +314,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             next_obs, all_rewards, done, info = train_env.step(action_dict)
 
             # Reward shaping .Dead-lock .NotMoving .NotStarted
-            if False:
+            if True:
                 agent_positions = get_agent_positions(train_env)
                 for agent_handle in train_env.get_agent_handles():
                     agent = train_env.agents[agent_handle]
