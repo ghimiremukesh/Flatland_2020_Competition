@@ -1,9 +1,6 @@
 import torch.nn as nn
 
-class Policy(nn.Module):
-    def __init__(self):
-        super(Policy, self).__init__()
-
+class Policy:
     def step(self, handle, state, action, reward, next_state, done):
         raise NotImplementedError
 
