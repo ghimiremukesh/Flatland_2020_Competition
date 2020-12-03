@@ -35,7 +35,8 @@ class DataBuffers:
         return self.memory.get(handle, [])
 
     def push_transition(self, handle, transition):
-        transitions = self.get_transitions(handle).append(transition)
+        transitions = self.get_transitions(handle)
+        transitions.append(transition)
         self.memory.update({handle: transitions})
 
 
@@ -103,7 +104,7 @@ class PPOAgent(Policy):
         return state, action, reward, s_next, done, prob_action
 
     def train_net(self):
-        for handle in range(self.n_agents):
+        for handle in range(len(self.memory)):
             agent_episode_history = self.memory.get_transitions(handle)
             if len(agent_episode_history) > 0:
                 # convert the replay buffer to torch tensors (arrays)
