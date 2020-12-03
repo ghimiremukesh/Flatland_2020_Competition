@@ -10,9 +10,9 @@ from torch.distributions import Categorical
 # Hyperparameters
 from reinforcement_learning.policy import Policy
 
-LEARNING_RATE = 0.00001
+LEARNING_RATE = 0.1e-4
 GAMMA = 0.98
-LMBDA = 0.95
+LMBDA = 0.9
 EPS_CLIP = 0.1
 K_EPOCH = 3
 
@@ -76,7 +76,7 @@ class PPOAgent(Policy):
         transition = (state, action, reward, next_state, prob[action].item(), done)
         self.memory.push_transition(handle, transition)
 
-    def _convert_transitions_to_torch(self, transitions_array):
+    def _convert_transitions_to_torch_tensors(self, transitions_array):
         state_list, action_list, reward_list, state_next_list, prob_a_list, done_list = [], [], [], [], [], []
         total_reward = 0
         for transition in transitions_array:
@@ -108,14 +108,14 @@ class PPOAgent(Policy):
             agent_episode_history = self.memory.get_transitions(handle)
             if len(agent_episode_history) > 0:
                 # convert the replay buffer to torch tensors (arrays)
-                state, action, reward, state_next, done, prob_action = \
-                    self._convert_transitions_to_torch(agent_episode_history)
+                states, actions, rewards, states_next, dones, probs_action = \
+                    self._convert_transitions_to_torch_tensors(agent_episode_history)
 
                 # run K_EPOCH optimisation steps
                 for i in range(K_EPOCH):
                     # temporal difference function / and prepare advantage function data
-                    estimated_target_value = reward + GAMMA * self.v(state_next) * (1.0 - done)
-                    difference_to_expected_value_deltas = estimated_target_value - self.v(state)
+                    estimated_target_value = rewards + GAMMA * self.v(states_next) * (1.0 - dones)
+                    difference_to_expected_value_deltas = estimated_target_value - self.v(states)
                     difference_to_expected_value_deltas = difference_to_expected_value_deltas.detach().numpy()
 
                     # build advantage function and convert it to torch tensor (array)
@@ -125,16 +125,18 @@ class PPOAgent(Policy):
                         advantage_value = LMBDA * advantage_value + difference_to_expected_value_t[0]
                         advantage_list.append([advantage_value])
                     advantage_list.reverse()
-                    advantage = torch.tensor(advantage_list, dtype=torch.float)
+                    advantages = torch.tensor(advantage_list, dtype=torch.float)
 
-                    pi_action = self.pi(state, softmax_dim=1).gather(1, action)
-                    ratio = torch.exp(torch.log(pi_action) - torch.log(prob_action))  # a/b == exp(log(a)-log(b))
+                    # estimate pi_action for all state
+                    pi_actions = self.pi(states, softmax_dim=1).gather(1, actions)
+                    # calculate the ratios
+                    ratios = torch.exp(torch.log(pi_actions) - torch.log(probs_action))
                     # Normal Policy Gradient objective
-                    surrogate_objective = ratio * advantage
+                    surrogate_objective = ratios * advantages
                     # clipped version of Normal Policy Gradient objective
-                    clipped_surrogate_objective = torch.clamp(ratio * advantage, 1 - EPS_CLIP, 1 + EPS_CLIP)
+                    clipped_surrogate_objective = torch.clamp(ratios * advantages, 1 - EPS_CLIP, 1 + EPS_CLIP)
                     # value function loss
-                    value_loss = F.mse_loss(self.v(state), estimated_target_value.detach())
+                    value_loss = F.mse_loss(self.v(states), estimated_target_value.detach())
                     # loss
                     loss = -torch.min(surrogate_objective, clipped_surrogate_objective) + value_loss
 
