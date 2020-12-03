@@ -35,7 +35,8 @@ class DataBuffers:
         return self.memory.get(handle, [])
 
     def push_transition(self, handle, transition):
-        self.memory.update({handle: self.get_transitions(handle).append(transition)})
+        transitions = self.get_transitions(handle).append(transition)
+        self.memory.update({handle: transitions})
 
 
 class PPOAgent(Policy):
