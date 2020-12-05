@@ -314,7 +314,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             next_obs, all_rewards, done, info = train_env.step(action_dict)
 
             # Reward shaping .Dead-lock .NotMoving .NotStarted
-            if True:
+            if False:
                 agent_positions = get_agent_positions(train_env)
                 for agent_handle in train_env.get_agent_handles():
                     agent = train_env.agents[agent_handle]
@@ -335,6 +335,17 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                             all_rewards[agent_handle] -= 5.0
                     elif agent.status == RailAgentStatus.READY_TO_DEPART:
                         all_rewards[agent_handle] -= 5.0
+            else:
+                if True:
+                    agent_positions = get_agent_positions(train_env)
+                    for agent_handle in train_env.get_agent_handles():
+                        agent = train_env.agents[agent_handle]
+                        act = action_dict.get(agent_handle, RailEnvActions.MOVE_FORWARD)
+                        if agent.status == RailAgentStatus.ACTIVE:
+                            if done[agent_handle] == False:
+                                if check_for_dealock(agent_handle, train_env, agent_positions):
+                                    all_rewards[agent_handle] -= 1000.0
+                                    done[agent_handle] = True
 
             step_timer.end()
 
@@ -548,13 +559,13 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=5000, type=int)
-    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=1,
+    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=25000, type=int)
+    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=2,
                         type=int)
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
                         type=int)
     parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=5, type=int)
-    parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=100, type=int)
+    parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=200, type=int)
     parser.add_argument("--eps_start", help="max exploration", default=1.0, type=float)
     parser.add_argument("--eps_end", help="min exploration", default=0.05, type=float)
     parser.add_argument("--eps_decay", help="exploration decay", default=0.9975, type=float)

@@ -15,8 +15,10 @@ GAMMA = 0.98
 LAMBDA = 0.9
 SURROGATE_EPS_CLIP = 0.01
 K_EPOCH = 3
+WEIGHT_LOSS = 0.5
+WEIGHT_ENTROPY = 0.01
 
-device = torch.device("cpu")#"cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")  # "cuda:0" if torch.cuda.is_available() else "cpu")
 print("device:", device)
 
 
@@ -40,54 +42,46 @@ class DataBuffers:
         self.memory.update({handle: transitions})
 
 
-class GlobalModel(nn.Module):
-    def __init__(self, state_size, action_size, hidsize1=128, hidsize2=128):
-        super(GlobalModel, self).__init__()
-        self._layer_1 = nn.Linear(state_size, hidsize1)
-        self.global_network = nn.Linear(hidsize1, hidsize2)
+class ActorCriticModel(nn.Module):
 
-    def get_model(self):
-        return self.global_network
+    def __init__(self, state_size, action_size, hidsize1=128, hidsize2=128):
+        super(ActorCriticModel, self).__init__()
+        self.actor = nn.Sequential(
+            nn.Linear(state_size, hidsize1),
+            nn.Tanh(),
+            nn.Linear(hidsize1, hidsize2),
+            nn.Tanh(),
+            nn.Linear(hidsize2, action_size)
+        )
+
+        self.critic = nn.Sequential(
+            nn.Linear(state_size, hidsize1),
+            nn.Tanh(),
+            nn.Linear(hidsize1, hidsize2),
+            nn.Tanh(),
+            nn.Linear(hidsize2, 1)
+        )
 
     def forward(self, x):
-        val = F.relu(self._layer_1(x))
-        val = F.relu(self.global_network(val))
-        return val
+        raise NotImplementedError
 
-    def save(self, filename):
-        # print("Saving model from checkpoint:", filename)
-        torch.save(self.global_network.state_dict(), filename + ".global")
-
-    def _load(self, obj, filename):
-        if os.path.exists(filename):
-            print(' >> ', filename)
-            try:
-                obj.load_state_dict(torch.load(filename, map_location=device))
-            except:
-                print(" >> failed!")
-        return obj
-
-    def load(self, filename):
-        self.global_network = self._load(self.global_network, filename + ".global")
-
-
-class PolicyNetwork(nn.Module):
-
-    def __init__(self, state_size, action_size, global_network, hidsize1=128, hidsize2=128):
-        super(PolicyNetwork, self).__init__()
-        self.global_network = global_network
-        self.policy_network = nn.Linear(hidsize2, action_size)
-
-    def forward(self, x, softmax_dim=0):
-        x = F.tanh(self.global_network.forward(x))
-        x = self.policy_network(x)
+    def act_prob(self, states, softmax_dim=0):
+        x = self.actor(states)
         prob = F.softmax(x, dim=softmax_dim)
         return prob
 
-    # Checkpointing methods
+    def evaluate(self, states, actions):
+        action_probs = self.act_prob(states)
+        dist = Categorical(action_probs)
+        action_logprobs = dist.log_prob(actions)
+        dist_entropy = dist.entropy()
+        state_value = self.critic(states)
+        return action_logprobs, torch.squeeze(state_value), dist_entropy
+
     def save(self, filename):
         # print("Saving model from checkpoint:", filename)
-        torch.save(self.policy_network.state_dict(), filename + ".policy")
+        torch.save(self.actor.state_dict(), filename + ".actor")
+        torch.save(self.critic.state_dict(), filename + ".value")
 
     def _load(self, obj, filename):
         if os.path.exists(filename):
@@ -100,99 +94,67 @@ class PolicyNetwork(nn.Module):
 
     def load(self, filename):
         print("load policy from file", filename)
-        self.policy_network = self._load(self.policy_network, filename + ".policy")
-
-
-class ValueNetwork(nn.Module):
-
-    def __init__(self, state_size, action_size, global_network, hidsize1=128, hidsize2=128):
-        super(ValueNetwork, self).__init__()
-        self.global_network = global_network
-        self.value_network = nn.Linear(hidsize2, 1)
-
-    def forward(self, x):
-        x = F.tanh(self.global_network.forward(x))
-        v = self.value_network(x)
-        return v
-
-    # Checkpointing methods
-    def save(self, filename):
-        # print("Saving model from checkpoint:", filename)
-        torch.save(self.value_network.state_dict(), filename + ".value")
-
-    def _load(self, obj, filename):
-        if os.path.exists(filename):
-            print(' >> ', filename)
-            try:
-                obj.load_state_dict(torch.load(filename, map_location=device))
-            except:
-                print(" >> failed!")
-        return obj
-
-    def load(self, filename):
-        self.value_network = self._load(self.value_network, filename + ".value")
+        self.actor = self._load(self.actor, filename + ".actor")
+        self.critic = self._load(self.critic, filename + ".critic")
 
 
 class PPOAgent(Policy):
     def __init__(self, state_size, action_size):
         super(PPOAgent, self).__init__()
-        # create the data buffer - collects all transitions (state, action, reward, next_state, action_prob, done)
-        # each agent owns its own buffer
         self.memory = DataBuffers()
-        # signal - stores the current loss
         self.loss = 0
-        # create the global, shared deep neuronal network
-        self.global_network = GlobalModel(state_size, action_size)
-        # create the "critic" or value network
-        self.value_network = ValueNetwork(state_size, action_size, self.global_network)
-        # create the "actor" or policy network
-        self.policy_network = PolicyNetwork(state_size, action_size, self.global_network)
-        # create for each network a optimizer
-        self.value_optimizer = optim.Adam(self.value_network.parameters(), lr=LEARNING_RATE)
-        self.policy_optimizer = optim.Adam(self.policy_network.parameters(), lr=LEARNING_RATE)
-
+        self.actor_critic_model = ActorCriticModel(state_size, action_size)
+        self.optimizer = optim.Adam(self.actor_critic_model.parameters(), lr=LEARNING_RATE)
+        self.lossFunction = nn.MSELoss()
 
     def reset(self):
         pass
 
     def act(self, state, eps=None):
-        prob = self.policy_network(torch.from_numpy(state).float())
-        m = Categorical(prob)
-        a = m.sample().item()
-        return a
+        # sample a action to take
+        prob = self.actor_critic_model.act_prob(torch.from_numpy(state).float())
+        return Categorical(prob).sample().item()
 
     def step(self, handle, state, action, reward, next_state, done):
-        # Record the results of the agent's action as transition
-        prob = self.policy_network(torch.from_numpy(state).float())
+        # record transitions ([state] -> [action] -> [reward, nextstate, done])
+        prob = self.actor_critic_model.act_prob(torch.from_numpy(state).float())
         transition = (state, action, reward, next_state, prob[action].item(), done)
         self.memory.push_transition(handle, transition)
 
     def _convert_transitions_to_torch_tensors(self, transitions_array):
+        # build empty lists(arrays)
         state_list, action_list, reward_list, state_next_list, prob_a_list, done_list = [], [], [], [], [], []
-        total_reward = 0
-        for transition in transitions_array:
+
+        # set discounted_reward to zero
+        discounted_reward = 0
+        for transition in transitions_array[::-1]:
             state_i, action_i, reward_i, state_next_i, prob_action_i, done_i = transition
 
-            state_list.append(state_i)
-            action_list.append([action_i])
-            total_reward += reward_i
+            state_list.insert(0, state_i)
+            action_list.insert(0, action_i)
             if done_i:
-                reward_list.append([max(1.0, total_reward)])
-                done_list.append([1])
+                discounted_reward = 0
+                done_list.insert(0, 1)
             else:
-                reward_list.append([0])
-                done_list.append([0])
-            state_next_list.append(state_next_i)
-            prob_a_list.append([prob_action_i])
+                discounted_reward = reward_i + GAMMA * discounted_reward
+                done_list.insert(0, 0)
+            reward_list.insert(0, discounted_reward)
+            state_next_list.insert(0, state_next_i)
+            prob_a_list.insert(0, prob_action_i)
 
-        state, action, reward, s_next, done, prob_action = torch.tensor(state_list, dtype=torch.float), \
-                                                           torch.tensor(action_list), \
-                                                           torch.tensor(reward_list), \
-                                                           torch.tensor(state_next_list, dtype=torch.float), \
-                                                           torch.tensor(done_list, dtype=torch.float), \
-                                                           torch.tensor(prob_a_list)
+        # convert data to torch tensors
+        states, actions, rewards, states_next, dones, prob_actions = \
+            torch.tensor(state_list, dtype=torch.float).to(device), \
+            torch.tensor(action_list).to(device), \
+            torch.tensor(reward_list, dtype=torch.float).to(device), \
+            torch.tensor(state_next_list, dtype=torch.float).to(device), \
+            torch.tensor(done_list, dtype=torch.float).to(device), \
+            torch.tensor(prob_a_list).to(device)
 
-        return state, action, reward, s_next, done, prob_action
+        # standard-normalize rewards
+        rewards = (rewards - rewards.mean()) / (rewards.std() + 1.e-5)
+
+        return states, actions, rewards, states_next, dones, prob_actions
 
     def train_net(self):
         for handle in range(len(self.memory)):
@@ -202,48 +164,29 @@ class PPOAgent(Policy):
                 states, actions, rewards, states_next, dones, probs_action = \
                     self._convert_transitions_to_torch_tensors(agent_episode_history)
 
-                # run K_EPOCH optimisation steps
-                for i in range(K_EPOCH):
-                    # temporal difference function / and prepare advantage function data
-                    estimated_target_value = \
-                        rewards + GAMMA * self.value_network(states_next) * (1.0 - dones)
-                    difference_to_expected_value_deltas = \
-                        estimated_target_value - self.value_network(states)
-                    difference_to_expected_value_deltas = difference_to_expected_value_deltas.detach().numpy()
+                # Optimize policy for K epochs:
+                for _ in range(K_EPOCH):
+                    # evaluating actions (actor) and values (critic)
+                    logprobs, state_values, dist_entropy = self.actor_critic_model.evaluate(states, actions)
 
-                    # build advantage function and convert it to torch tensor (array)
-                    advantage_list = []
-                    advantage_value = 0.0
-                    for difference_to_expected_value_t in difference_to_expected_value_deltas[::-1]:
-                        advantage_value = LAMBDA * advantage_value + difference_to_expected_value_t[0]
-                        advantage_list.append([advantage_value])
-                    advantage_list.reverse()
-                    advantages = torch.tensor(advantage_list, dtype=torch.float)
+                    # finding the ratios (pi_thetas / pi_thetas_replayed):
+                    ratios = torch.exp(logprobs - probs_action.detach())
 
-                    # estimate pi_action for all state
-                    pi_actions = self.policy_network.forward(states, softmax_dim=1).gather(1, actions)
-                    # calculate the ratios
-                    ratios = torch.exp(torch.log(pi_actions) - torch.log(probs_action))
-                    # Normal Policy Gradient objective
-                    surrogate_objective = ratios * advantages
-                    # clipped version of Normal Policy Gradient objective
-                    clipped_surrogate_objective = torch.clamp(ratios * advantages,
-                                                              1 - SURROGATE_EPS_CLIP,
-                                                              1 + SURROGATE_EPS_CLIP)
-                    # create value loss function
-                    value_loss = F.smooth_l1_loss(self.value_network(states),
-                                            estimated_target_value.detach())
-                    # create final loss function
-                    loss = -torch.min(surrogate_objective, clipped_surrogate_objective) + value_loss
+                    # finding Surrogate Loss:
+                    advantages = rewards - state_values.detach()
+                    surr1 = ratios * advantages
+                    surr2 = torch.clamp(ratios, 1 - SURROGATE_EPS_CLIP, 1 + SURROGATE_EPS_CLIP) * advantages
+                    loss = \
+                        -torch.min(surr1, surr2) \
+                        + WEIGHT_LOSS * self.lossFunction(state_values, rewards) \
+                        - WEIGHT_ENTROPY * dist_entropy
 
-                    # update policy ("actor") and value ("critic") networks
-                    self.value_optimizer.zero_grad()
-                    self.policy_optimizer.zero_grad()
+                    # make a gradient step
+                    self.optimizer.zero_grad()
                     loss.mean().backward()
-                    self.value_optimizer.step()
-                    self.policy_optimizer.step()
+                    self.optimizer.step()
 
-                    # store current loss
+                    # store current loss to the agent
                     self.loss = loss.mean().detach().numpy()
 
         self.memory.reset()
@@ -252,12 +195,11 @@ class PPOAgent(Policy):
         if train:
             self.train_net()
 
+    # Checkpointing methods
     def save(self, filename):
-        self.global_network.save(filename)
-        self.value_network.save(filename)
-        self.policy_network.save(filename)
-        torch.save(self.value_optimizer.state_dict(), filename + ".value_optimizer")
-        torch.save(self.policy_optimizer.state_dict(), filename + ".policy_optimizer")
+        # print("Saving model from checkpoint:", filename)
+        self.actor_critic_model.save(filename)
+        torch.save(self.optimizer.state_dict(), filename + ".optimizer")
 
     def _load(self, obj, filename):
         if os.path.exists(filename):
@@ -269,16 +211,13 @@ class PPOAgent(Policy):
         return obj
 
     def load(self, filename):
-        self.global_network.load(filename)
-        self.value_network.load(filename)
-        self.policy_network.load(filename)
-        self.value_optimizer = self._load(self.value_optimizer, filename + ".value_optimizer")
-        self.policy_optimizer = self._load(self.policy_optimizer, filename + ".policy_optimizer")
+        print("load policy from file", filename)
+        self.actor_critic_model.load(filename)
+        print("load optimizer from file", filename)
+        self.optimizer = self._load(self.optimizer, filename + ".optimizer")
 
     def clone(self):
         policy = PPOAgent(self.state_size, self.action_size)
-        policy.value_network = copy.deepcopy(self.value_network)
-        policy.policy_network = copy.deepcopy(self.policy_network)
-        policy.value_optimizer = copy.deepcopy(self.value_optimizer)
-        policy.policy_optimizer = copy.deepcopy(self.policy_optimizer)
+        policy.actor_critic_model = copy.deepcopy(self.actor_critic_model)
+        policy.optimizer = copy.deepcopy(self.optimizer)
         return self
