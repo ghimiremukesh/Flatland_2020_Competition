@@ -10,14 +10,6 @@ from torch.distributions import Categorical
 # Hyperparameters
 from reinforcement_learning.policy import Policy
 
-LEARNING_RATE = 0.1e-4
-GAMMA = 0.98
-LAMBDA = 0.9
-SURROGATE_EPS_CLIP = 0.01
-K_EPOCH = 3
-WEIGHT_LOSS = 0.5
-WEIGHT_ENTROPY = 0.01
-
 device = torch.device("cpu")  # "cuda:0" if torch.cuda.is_available() else "cpu")
 print("device:", device)
 
@@ -101,10 +93,20 @@ class ActorCriticModel(nn.Module):
 class PPOAgent(Policy):
     def __init__(self, state_size, action_size):
         super(PPOAgent, self).__init__()
+
+        # parameters
+        self.learning_rate = 0.1e-3
+        self.gamma = 0.98
+        self.surrogate_eps_clip = 0.1
+        self.K_epoch = 3
+        self.weight_loss = 0.9
+        self.weight_entropy = 0.01
+
+        # objects
         self.memory = DataBuffers()
         self.loss = 0
         self.actor_critic_model = ActorCriticModel(state_size, action_size)
-        self.optimizer = optim.Adam(self.actor_critic_model.parameters(), lr=LEARNING_RATE)
+        self.optimizer = optim.Adam(self.actor_critic_model.parameters(), lr=self.learning_rate)
         self.lossFunction = nn.MSELoss()
 
     def reset(self):
@@ -136,7 +138,7 @@ class PPOAgent(Policy):
                 discounted_reward = 0
                 done_list.insert(0, 1)
             else:
-                discounted_reward = reward_i + GAMMA * discounted_reward
+                discounted_reward = reward_i + self.gamma * discounted_reward
                 done_list.insert(0, 0)
             reward_list.insert(0, discounted_reward)
             state_next_list.insert(0, state_next_i)
@@ -165,7 +167,7 @@ class PPOAgent(Policy):
                     self._convert_transitions_to_torch_tensors(agent_episode_history)
 
                 # Optimize policy for K epochs:
-                for _ in range(K_EPOCH):
+                for _ in range(self.K_epoch):
                     # evaluating actions (actor) and values (critic)
                     logprobs, state_values, dist_entropy = self.actor_critic_model.evaluate(states, actions)
 
@@ -175,11 +177,11 @@ class PPOAgent(Policy):
                     # finding Surrogate Loss:
                     advantages = rewards - state_values.detach()
                     surr1 = ratios * advantages
-                    surr2 = torch.clamp(ratios, 1 - SURROGATE_EPS_CLIP, 1 + SURROGATE_EPS_CLIP) * advantages
+                    surr2 = torch.clamp(ratios, 1 - self.surrogate_eps_clip, 1 + self.surrogate_eps_clip) * advantages
                     loss = \
                         -torch.min(surr1, surr2) \
-                        + WEIGHT_LOSS * self.lossFunction(state_values, rewards) \
-                        - WEIGHT_ENTROPY * dist_entropy
+                        + self.weight_loss * self.lossFunction(state_values, rewards) \
+                        - self.weight_entropy * dist_entropy
 
                     # make a gradient step
                     self.optimizer.zero_grad()
