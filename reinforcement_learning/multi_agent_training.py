@@ -21,7 +21,7 @@ from flatland.utils.rendertools import RenderTool
 from torch.utils.tensorboard import SummaryWriter
 
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
-from reinforcement_learning.ppo.ppo_agent import PPOAgent
+from reinforcement_learning.ppo_agent import PPOAgent
 
 base_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(base_dir))

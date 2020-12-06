@@ -1,7 +1,7 @@
 import numpy as np
 
 from reinforcement_learning.policy import Policy
-from reinforcement_learning.ppo.ppo_agent import PPOAgent
+from reinforcement_learning.ppo_agent import PPOAgent
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
 
