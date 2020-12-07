@@ -1,7 +1,6 @@
 import copy
 import os
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -10,7 +9,7 @@ from torch.distributions import Categorical
 # Hyperparameters
 from reinforcement_learning.policy import Policy
 
-device = torch.device("cpu")#"cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")  # "cuda:0" if torch.cuda.is_available() else "cpu")
 print("device:", device)
 
 
@@ -99,8 +98,8 @@ class PPOAgent(Policy):
         self.learning_rate = 0.1e-4
         self.gamma = 0.99
         self.surrogate_eps_clip = 0.2
-        self.K_epoch = 3
-        self.weight_loss = 0.5
+        self.K_epoch = 30
+        self.weight_loss = 1.0
         self.weight_entropy = 0.01
 
         # objects
@@ -108,7 +107,7 @@ class PPOAgent(Policy):
         self.loss = 0
         self.actor_critic_model = ActorCriticModel(state_size, action_size)
         self.optimizer = optim.Adam(self.actor_critic_model.parameters(), lr=self.learning_rate)
-        self.loss_function = nn.MSELoss()
+        self.loss_function = nn.SmoothL1Loss()  # nn.MSELoss()
 
     def reset(self):
         pass
