@@ -165,38 +165,45 @@ class PPOAgent(Policy):
         return states, actions, rewards, states_next, dones, prob_actions
 
     def train_net(self):
-        for handle in range(len(self.memory)):
-            agent_episode_history = self.memory.get_transitions(handle)
-            if len(agent_episode_history) > 0:
-                # convert the replay buffer to torch tensors (arrays)
-                states, actions, rewards, states_next, dones, probs_action = \
-                    self._convert_transitions_to_torch_tensors(agent_episode_history)
+        # Optimize policy for K epochs:
+        for _ in range(self.K_epoch):
+            # All agents have to propagate their experiences made during past episode
+            for handle in range(len(self.memory)):
+                # Extract agent's episode history (list of all transitions)
+                agent_episode_history = self.memory.get_transitions(handle)
+                if len(agent_episode_history) > 0:
+                    # Convert the replay buffer to torch tensors (arrays)
+                    states, actions, rewards, states_next, dones, probs_action = \
+                        self._convert_transitions_to_torch_tensors(agent_episode_history)
 
-                # Optimize policy for K epochs:
-                for _ in range(self.K_epoch):
-                    # evaluating actions (actor) and values (critic)
+                    # Evaluating actions (actor) and values (critic)
                     logprobs, state_values, dist_entropy = self.actor_critic_model.evaluate(states, actions)
 
-                    # finding the ratios (pi_thetas / pi_thetas_replayed):
+                    # Finding the ratios (pi_thetas / pi_thetas_replayed):
                     ratios = torch.exp(logprobs - probs_action.detach())
 
-                    # finding Surrogate Loss:
+                    # Finding Surrogate Loos
                     advantages = rewards - state_values.detach()
                     surr1 = ratios * advantages
                     surr2 = torch.clamp(ratios, 1. - self.surrogate_eps_clip, 1. + self.surrogate_eps_clip) * advantages
+
+                    # The loss function is used to estimate the gardient and use the entropy function based
+                    # heuristic to penalize the gradient function when the policy becomes deterministic this would let
+                    # the gardient to become very flat and so the gradient is no longer useful.
                     loss = \
                         -torch.min(surr1, surr2) \
                         + self.weight_loss * self.loss_function(state_values, rewards) \
                         - self.weight_entropy * dist_entropy
 
-                    # make a gradient step
+                    # Make a gradient step
                     self.optimizer.zero_grad()
                     loss.mean().backward()
                     self.optimizer.step()
 
-                    # store current loss to the agent
+                    # Transfer the current loss to the agents loss (information) for debug purpose only
                     self.loss = loss.mean().detach().numpy()
 
+        # Reset all collect transition data
         self.memory.reset()
 
     def end_episode(self, train):
