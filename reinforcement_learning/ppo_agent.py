@@ -189,7 +189,7 @@ class PPOAgent(Policy):
 
                     # The loss function is used to estimate the gardient and use the entropy function based
                     # heuristic to penalize the gradient function when the policy becomes deterministic this would let
-                    # the gardient to become very flat and so the gradient is no longer useful.
+                    # the gradient becomes very flat and so the gradient is no longer useful.
                     loss = \
                         -torch.min(surr1, surr2) \
                         + self.weight_loss * self.loss_function(state_values, rewards) \
