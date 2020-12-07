@@ -1,16 +1,16 @@
 import copy
 import os
 
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 
 # Hyperparameters
 from reinforcement_learning.policy import Policy
 
-device = torch.device("cpu")  # "cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")#"cuda:0" if torch.cuda.is_available() else "cpu")
 print("device:", device)
 
 
@@ -43,7 +43,8 @@ class ActorCriticModel(nn.Module):
             nn.Tanh(),
             nn.Linear(hidsize1, hidsize2),
             nn.Tanh(),
-            nn.Linear(hidsize2, action_size)
+            nn.Linear(hidsize2, action_size),
+            nn.Softmax(dim=-1)
         )
 
         self.critic = nn.Sequential(
@@ -57,13 +58,13 @@ class ActorCriticModel(nn.Module):
     def forward(self, x):
         raise NotImplementedError
 
-    def act_prob(self, states, softmax_dim=0):
-        x = self.actor(states)
-        prob = F.softmax(x, dim=softmax_dim)
-        return prob
+    def get_actor_dist(self, state):
+        action_probs = self.actor(state)
+        dist = Categorical(action_probs)
+        return dist
 
     def evaluate(self, states, actions):
-        action_probs = self.act_prob(states)
+        action_probs = self.actor(states)
         dist = Categorical(action_probs)
         action_logprobs = dist.log_prob(actions)
         dist_entropy = dist.entropy()
@@ -95,11 +96,11 @@ class PPOAgent(Policy):
         super(PPOAgent, self).__init__()
 
         # parameters
-        self.learning_rate = 0.1e-3
-        self.gamma = 0.98
-        self.surrogate_eps_clip = 0.1
+        self.learning_rate = 0.1e-4
+        self.gamma = 0.99
+        self.surrogate_eps_clip = 0.2
         self.K_epoch = 3
-        self.weight_loss = 0.9
+        self.weight_loss = 0.5
         self.weight_entropy = 0.01
 
         # objects
@@ -107,20 +108,26 @@ class PPOAgent(Policy):
         self.loss = 0
         self.actor_critic_model = ActorCriticModel(state_size, action_size)
         self.optimizer = optim.Adam(self.actor_critic_model.parameters(), lr=self.learning_rate)
-        self.lossFunction = nn.MSELoss()
+        self.loss_function = nn.MSELoss()
 
     def reset(self):
         pass
 
     def act(self, state, eps=None):
         # sample a action to take
-        prob = self.actor_critic_model.act_prob(torch.from_numpy(state).float())
-        return Categorical(prob).sample().item()
+        torch_state = torch.tensor(state, dtype=torch.float).to(device)
+        dist = self.actor_critic_model.get_actor_dist(torch_state)
+        action = dist.sample()
+        return action.item()
 
     def step(self, handle, state, action, reward, next_state, done):
-        # record transitions ([state] -> [action] -> [reward, nextstate, done])
-        prob = self.actor_critic_model.act_prob(torch.from_numpy(state).float())
-        transition = (state, action, reward, next_state, prob[action].item(), done)
+        # record transitions ([state] -> [action] -> [reward, next_state, done])
+        torch_action = torch.tensor(action, dtype=torch.float).to(device)
+        torch_state = torch.tensor(state, dtype=torch.float).to(device)
+        # evaluate actor
+        dist = self.actor_critic_model.get_actor_dist(torch_state)
+        action_logprobs = dist.log_prob(torch_action)
+        transition = (state, action, reward, next_state, action_logprobs.item(), done)
         self.memory.push_transition(handle, transition)
 
     def _convert_transitions_to_torch_tensors(self, transitions_array):
@@ -177,10 +184,10 @@ class PPOAgent(Policy):
                     # finding Surrogate Loss:
                     advantages = rewards - state_values.detach()
                     surr1 = ratios * advantages
-                    surr2 = torch.clamp(ratios, 1 - self.surrogate_eps_clip, 1 + self.surrogate_eps_clip) * advantages
+                    surr2 = torch.clamp(ratios, 1. - self.surrogate_eps_clip, 1. + self.surrogate_eps_clip) * advantages
                     loss = \
                         -torch.min(surr1, surr2) \
-                        + self.weight_loss * self.lossFunction(state_values, rewards) \
+                        + self.weight_loss * self.loss_function(state_values, rewards) \
                         - self.weight_entropy * dist_entropy
 
                     # make a gradient step

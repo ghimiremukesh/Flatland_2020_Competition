@@ -336,7 +336,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                     elif agent.status == RailAgentStatus.READY_TO_DEPART:
                         all_rewards[agent_handle] -= 5.0
             else:
-                if True:
+                if False:
                     agent_positions = get_agent_positions(train_env)
                     for agent_handle in train_env.get_agent_handles():
                         agent = train_env.agents[agent_handle]
@@ -565,7 +565,7 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
                         type=int)
     parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=5, type=int)
-    parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=200, type=int)
+    parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=2000, type=int)
     parser.add_argument("--eps_start", help="max exploration", default=1.0, type=float)
     parser.add_argument("--eps_end", help="min exploration", default=0.05, type=float)
     parser.add_argument("--eps_decay", help="exploration decay", default=0.9975, type=float)
