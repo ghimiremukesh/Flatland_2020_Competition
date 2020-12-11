@@ -56,7 +56,7 @@ checkpoint = "./checkpoints/201124171810-7800.pth" # DDDQN: 18.249244799876152 D
 checkpoint = "./checkpoints/201207144650-20000.pth" # PPO: 14.45790721540786
 checkpoint = "./checkpoints/201211063511-6300.pth" # DDDQN: 16.948349308440857
 checkpoint = "./checkpoints/201211095604-12000.pth" # DDDQN: 17.3862941316504
-checkpoint = "./checkpoints/201211164554-8900.pth" # DDDQN: 17.44397192482364
+checkpoint = "./checkpoints/201211164554-9400.pth" # DDDQN: 16.09241366013537
 
 EPSILON = 0.01
 
