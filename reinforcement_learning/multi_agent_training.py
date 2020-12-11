@@ -22,6 +22,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
 from reinforcement_learning.ppo_agent import PPOAgent
+from utils.deadlock_check import get_agent_positions, check_for_deadlock
 
 base_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(base_dir))
@@ -76,42 +77,6 @@ def create_rail_env(env_params, tree_observation):
         obs_builder_object=tree_observation,
         random_seed=seed
     )
-
-
-def get_agent_positions(env):
-    agent_positions: np.ndarray = np.full((env.height, env.width), -1)
-    for agent_handle in env.get_agent_handles():
-        agent = env.agents[agent_handle]
-        if agent.status == RailAgentStatus.ACTIVE:
-            position = agent.position
-            if position is None:
-                position = agent.initial_position
-            agent_positions[position] = agent_handle
-    return agent_positions
-
-
-def check_for_dealock(handle, env, agent_positions):
-    agent = env.agents[handle]
-    if agent.status == RailAgentStatus.DONE or agent.status == RailAgentStatus.DONE_REMOVED:
-        return False
-
-    position = agent.position
-    if position is None:
-        position = agent.initial_position
-    possible_transitions = env.rail.get_transitions(*position, agent.direction)
-    num_transitions = fast_count_nonzero(possible_transitions)
-    for dir_loop in range(4):
-        if possible_transitions[dir_loop] == 1:
-            new_position = get_new_position(position, dir_loop)
-            opposite_agent = agent_positions[new_position]
-            if opposite_agent != handle and opposite_agent != -1:
-                num_transitions -= 1
-            else:
-                return False
-
-    is_deadlock = num_transitions <= 0
-    return is_deadlock
-
 
 def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     # Environment parameters
@@ -207,7 +172,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
     # Double Dueling DQN policy
     policy = DDDQNPolicy(state_size, action_size, train_params)
-    if True:
+    if False:
         policy = PPOAgent(state_size, action_size)
     # Load existing policy
     if train_params.load_policy is not "":
@@ -256,7 +221,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Reset environment
         reset_timer.start()
-        number_of_agents = int(min(n_agents, 1 + np.floor(episode_idx / 200)))
+        number_of_agents = int(min(n_agents, 1 + np.floor(episode_idx / 500)))
         train_env_params.n_agents = episode_idx % number_of_agents + 1
 
         train_env = create_rail_env(train_env_params, tree_observation)
@@ -318,34 +283,11 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 agent_positions = get_agent_positions(train_env)
                 for agent_handle in train_env.get_agent_handles():
                     agent = train_env.agents[agent_handle]
-
                     act = action_dict.get(agent_handle, RailEnvActions.MOVE_FORWARD)
                     if agent.status == RailAgentStatus.ACTIVE:
-                        pos = agent.position
-                        dir = agent.direction
-                        possible_transitions = train_env.rail.get_transitions(*pos, dir)
-                        num_transitions = fast_count_nonzero(possible_transitions)
-                        if act == RailEnvActions.STOP_MOVING:
-                            all_rewards[agent_handle] -= 2.0
-
-                        if num_transitions == 1:
-                            if act != RailEnvActions.MOVE_FORWARD:
-                                all_rewards[agent_handle] -= 1.0
-                        if check_for_dealock(agent_handle, train_env, agent_positions):
-                            all_rewards[agent_handle] -= 5.0
-                    elif agent.status == RailAgentStatus.READY_TO_DEPART:
-                        all_rewards[agent_handle] -= 5.0
-            else:
-                if False:
-                    agent_positions = get_agent_positions(train_env)
-                    for agent_handle in train_env.get_agent_handles():
-                        agent = train_env.agents[agent_handle]
-                        act = action_dict.get(agent_handle, RailEnvActions.MOVE_FORWARD)
-                        if agent.status == RailAgentStatus.ACTIVE:
-                            if done[agent_handle] == False:
-                                if check_for_dealock(agent_handle, train_env, agent_positions):
-                                    all_rewards[agent_handle] -= 1000.0
-                                    done[agent_handle] = True
+                        if done[agent_handle] == False:
+                            if check_for_deadlock(agent_handle, train_env, agent_positions):
+                                all_rewards[agent_handle] -= 1000.0
 
             step_timer.end()
 
@@ -559,17 +501,17 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=25000, type=int)
-    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=0,
+    parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=12000, type=int)
+    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=2,
                         type=int)
     parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
                         type=int)
     parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=5, type=int)
-    parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=2000, type=int)
-    parser.add_argument("--eps_start", help="max exploration", default=1.0, type=float)
-    parser.add_argument("--eps_end", help="min exploration", default=0.05, type=float)
-    parser.add_argument("--eps_decay", help="exploration decay", default=0.9975, type=float)
-    parser.add_argument("--buffer_size", help="replay buffer size", default=int(1e7), type=int)
+    parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=100, type=int)
+    parser.add_argument("--eps_start", help="max exploration", default=0.1, type=float)
+    parser.add_argument("--eps_end", help="min exploration", default=0.005, type=float)
+    parser.add_argument("--eps_decay", help="exploration decay", default=0.99975, type=float)
+    parser.add_argument("--buffer_size", help="replay buffer size", default=int(32_000), type=int)
     parser.add_argument("--buffer_min_size", help="min buffer size to start training", default=0, type=int)
     parser.add_argument("--restore_replay_buffer", help="replay buffer to restore", default="", type=str)
     parser.add_argument("--save_replay_buffer", help="save replay buffer at each evaluation interval", default=False,

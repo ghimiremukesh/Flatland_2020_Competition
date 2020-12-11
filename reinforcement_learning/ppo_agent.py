@@ -9,9 +9,11 @@ from torch.distributions import Categorical
 # Hyperparameters
 from reinforcement_learning.policy import Policy
 
-device = torch.device("cpu")  # "cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("device:", device)
 
+
+# https://lilianweng.github.io/lil-log/2018/04/08/policy-gradient-algorithms.html
 
 class DataBuffers:
     def __init__(self):
@@ -44,7 +46,7 @@ class ActorCriticModel(nn.Module):
             nn.Tanh(),
             nn.Linear(hidsize2, action_size),
             nn.Softmax(dim=-1)
-        )
+        ).to(device)
 
         self.critic = nn.Sequential(
             nn.Linear(state_size, hidsize1),
@@ -52,7 +54,7 @@ class ActorCriticModel(nn.Module):
             nn.Linear(hidsize1, hidsize2),
             nn.Tanh(),
             nn.Linear(hidsize2, 1)
-        )
+        ).to(device)
 
     def forward(self, x):
         raise NotImplementedError
@@ -95,11 +97,11 @@ class PPOAgent(Policy):
         super(PPOAgent, self).__init__()
 
         # parameters
-        self.learning_rate = 0.1e-4
-        self.gamma = 0.99
-        self.surrogate_eps_clip = 0.2
-        self.K_epoch = 30
-        self.weight_loss = 1.0
+        self.learning_rate = 1.0e-5
+        self.gamma = 0.95
+        self.surrogate_eps_clip = 0.1
+        self.K_epoch = 50
+        self.weight_loss = 0.5
         self.weight_entropy = 0.01
 
         # objects
@@ -144,8 +146,8 @@ class PPOAgent(Policy):
                 discounted_reward = 0
                 done_list.insert(0, 1)
             else:
-                discounted_reward = reward_i + self.gamma * discounted_reward
                 done_list.insert(0, 0)
+            discounted_reward = reward_i + self.gamma * discounted_reward
             reward_list.insert(0, discounted_reward)
             state_next_list.insert(0, state_next_i)
             prob_a_list.insert(0, prob_action_i)
@@ -160,22 +162,21 @@ class PPOAgent(Policy):
             torch.tensor(prob_a_list).to(device)
 
         # standard-normalize rewards
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1.e-5)
+        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1.e-5)
 
         return states, actions, rewards, states_next, dones, prob_actions
 
     def train_net(self):
-        # Optimize policy for K epochs:
-        for _ in range(self.K_epoch):
-            # All agents have to propagate their experiences made during past episode
-            for handle in range(len(self.memory)):
-                # Extract agent's episode history (list of all transitions)
-                agent_episode_history = self.memory.get_transitions(handle)
-                if len(agent_episode_history) > 0:
-                    # Convert the replay buffer to torch tensors (arrays)
-                    states, actions, rewards, states_next, dones, probs_action = \
-                        self._convert_transitions_to_torch_tensors(agent_episode_history)
-
+        # All agents have to propagate their experiences made during past episode
+        for handle in range(len(self.memory)):
+            # Extract agent's episode history (list of all transitions)
+            agent_episode_history = self.memory.get_transitions(handle)
+            if len(agent_episode_history) > 0:
+                # Convert the replay buffer to torch tensors (arrays)
+                states, actions, rewards, states_next, dones, probs_action = \
+                    self._convert_transitions_to_torch_tensors(agent_episode_history)
+                # Optimize policy for K epochs:
+                for _ in range(int(self.K_epoch)):
                     # Evaluating actions (actor) and values (critic)
                     logprobs, state_values, dist_entropy = self.actor_critic_model.evaluate(states, actions)
 
@@ -201,8 +202,9 @@ class PPOAgent(Policy):
                     self.optimizer.step()
 
                     # Transfer the current loss to the agents loss (information) for debug purpose only
-                    self.loss = loss.mean().detach().numpy()
+                    self.loss = loss.mean().detach().cpu().numpy()
 
+        self.K_epoch = max(3, self.K_epoch - 0.01)
         # Reset all collect transition data
         self.memory.reset()
 

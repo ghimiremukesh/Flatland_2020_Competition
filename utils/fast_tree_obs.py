@@ -7,6 +7,7 @@ from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.rail_env import fast_count_nonzero, fast_argmax, RailEnvActions
 
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
+from utils.deadlock_check import check_for_deadlock, get_agent_positions
 
 """
 LICENCE for the FastTreeObs Observation Builder  
@@ -25,7 +26,7 @@ class FastTreeObs(ObservationBuilder):
 
     def __init__(self, max_depth):
         self.max_depth = max_depth
-        self.observation_dim = 36
+        self.observation_dim = 41
 
     def build_data(self):
         if self.env is not None:
@@ -244,6 +245,7 @@ class FastTreeObs(ObservationBuilder):
 
     def get_many(self, handles: Optional[List[int]] = None):
         self.dead_lock_avoidance_agent.start_step(train=False)
+        self.agent_positions = get_agent_positions(self.env)
         observations = super().get_many(handles)
         self.dead_lock_avoidance_agent.end_step(train=False)
         return observations
@@ -328,6 +330,11 @@ class FastTreeObs(ObservationBuilder):
                     observation[19 + dir_loop] = has_same_agent
                     observation[23 + dir_loop] = has_target
                     observation[27 + dir_loop] = int(np.math.isinf(new_cell_dist))
+                    observation[36] = int(check_for_deadlock(handle,
+                                                             self.env,
+                                                             self.agent_positions,
+                                                             new_position,
+                                                             branch_direction))
 
             agents_on_switch, \
             agents_near_to_switch, \
@@ -341,7 +348,9 @@ class FastTreeObs(ObservationBuilder):
             observation[10] = int(agents_near_to_switch_all)
 
             action = self.dead_lock_avoidance_agent.act([handle], 0.0)
-            observation[31] = int(action == RailEnvActions.STOP_MOVING)
+            observation[35] = int(action == RailEnvActions.STOP_MOVING)
+
+            observation[40] = int(check_for_deadlock(handle, self.env, self.agent_positions))
 
         self.env.dev_obs_dict.update({handle: visited})
 
