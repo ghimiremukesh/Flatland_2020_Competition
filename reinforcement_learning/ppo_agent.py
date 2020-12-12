@@ -9,7 +9,7 @@ from torch.distributions import Categorical
 # Hyperparameters
 from reinforcement_learning.policy import Policy
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")#"cuda:0" if torch.cuda.is_available() else "cpu")
 print("device:", device)
 
 
@@ -145,8 +145,10 @@ class PPOAgent(Policy):
             if done_i:
                 discounted_reward = 0
                 done_list.insert(0, 1)
+                reward_i = 1
             else:
                 done_list.insert(0, 0)
+                reward_i = 0
             discounted_reward = reward_i + self.gamma * discounted_reward
             reward_list.insert(0, discounted_reward)
             state_next_list.insert(0, state_next_i)

@@ -172,7 +172,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
     # Double Dueling DQN policy
     policy = DDDQNPolicy(state_size, action_size, train_params)
-    if False:
+    if True:
         policy = PPOAgent(state_size, action_size)
     # Load existing policy
     if train_params.load_policy is not "":
