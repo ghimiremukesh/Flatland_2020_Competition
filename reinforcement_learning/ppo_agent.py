@@ -148,7 +148,10 @@ class PPOAgent(Policy):
                 reward_i = 1
             else:
                 done_list.insert(0, 0)
-                reward_i = 0
+                if reward_i < -1:
+                    reward_i = -1
+                else:
+                    reward_i = 0
             discounted_reward = reward_i + self.gamma * discounted_reward
             reward_list.insert(0, discounted_reward)
             state_next_list.insert(0, state_next_i)

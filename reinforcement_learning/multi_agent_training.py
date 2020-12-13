@@ -9,7 +9,6 @@ from pprint import pprint
 
 import numpy as np
 import psutil
-from flatland.core.grid.grid4_utils import get_new_position
 from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.malfunction_generators import malfunction_from_params, MalfunctionParameters
 from flatland.envs.observations import TreeObsForRailEnv
@@ -77,6 +76,7 @@ def create_rail_env(env_params, tree_observation):
         obs_builder_object=tree_observation,
         random_seed=seed
     )
+
 
 def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     # Environment parameters
@@ -283,11 +283,23 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 agent_positions = get_agent_positions(train_env)
                 for agent_handle in train_env.get_agent_handles():
                     agent = train_env.agents[agent_handle]
-                    act = action_dict.get(agent_handle, RailEnvActions.MOVE_FORWARD)
+                    act = action_dict.get(agent_handle, RailEnvActions.DO_NOTHING)
                     if agent.status == RailAgentStatus.ACTIVE:
+                        all_rewards[agent_handle] = 0.0
                         if done[agent_handle] == False:
                             if check_for_deadlock(agent_handle, train_env, agent_positions):
-                                all_rewards[agent_handle] -= 1000.0
+                                all_rewards[agent_handle] = -1.0
+                            else:
+                                pos = agent.position
+                                possible_transitions = train_env.rail.get_transitions(*pos, agent.direction)
+                                num_transitions = fast_count_nonzero(possible_transitions)
+                                if num_transitions < 2 and ((act != RailEnvActions.MOVE_FORWARD) or
+                                                            (act != RailEnvActions.STOP_MOVING)):
+                                    all_rewards[agent_handle] = -0.5
+                                else:
+                                    all_rewards[agent_handle] = -0.01
+                        else:
+                            all_rewards[agent_handle] = 1.0
 
             step_timer.end()
 
