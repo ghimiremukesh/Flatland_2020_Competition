@@ -31,6 +31,7 @@ from flatland.evaluators.client import FlatlandRemoteClient
 from flatland.evaluators.client import TimeoutException
 
 from reinforcement_learning.ppo_agent import PPOAgent
+from reinforcement_learning.ppo_deadlockavoidance_agent import MultiDecisionAgent
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import check_if_all_blocked
 from utils.fast_tree_obs import FastTreeObs
@@ -50,20 +51,23 @@ USE_FAST_TREEOBS = True
 USE_PPO_AGENT = True
 
 # Checkpoint to use (remember to push it!)
-checkpoint = "./checkpoints/201124171810-7800.pth" # DDDQN: 18.249244799876152 DEPTH=2 AGENTS=10
+checkpoint = "./checkpoints/201124171810-7800.pth"  # DDDQN: 18.249244799876152 DEPTH=2 AGENTS=10
 # checkpoint = "./checkpoints/201126150143-5200.pth" # DDDQN: 18.249244799876152 DEPTH=2 AGENTS=10
 # checkpoint = "./checkpoints/201126160144-2000.pth" # DDDQN: 18.249244799876152 DEPTH=2 AGENTS=10
-checkpoint = "./checkpoints/201207144650-20000.pth" # PPO: 14.45790721540786
-checkpoint = "./checkpoints/201211063511-6300.pth" # DDDQN: 16.948349308440857
-checkpoint = "./checkpoints/201211095604-12000.pth" # DDDQN: 17.3862941316504
-checkpoint = "./checkpoints/201211164554-9400.pth" # DDDQN: 16.09241366013537
-checkpoint = "./checkpoints/201213181400-6800.pth" # PPO: 13.944402986414723
+checkpoint = "./checkpoints/201207144650-20000.pth"  # PPO: 14.45790721540786
+checkpoint = "./checkpoints/201211063511-6300.pth"  # DDDQN: 16.948349308440857
+checkpoint = "./checkpoints/201211095604-12000.pth"  # DDDQN: 17.3862941316504
+checkpoint = "./checkpoints/201211164554-9400.pth"  # DDDQN: 16.09241366013537
+checkpoint = "./checkpoints/201213181400-6800.pth"  # PPO: 13.944402986414723
+checkpoint = "./checkpoints/201214140158-5000.pth"  # USE_MULTI_DECISION_AGENT with DDDQN: 13.944402986414723
+checkpoint = "./checkpoints/201214160604-3000.pth"  # USE_MULTI_DECISION_AGENT with DDDQN: 13.944402986414723
 
 EPSILON = 0.0
 
 # Use last action cache
 USE_ACTION_CACHE = False
 USE_DEAD_LOCK_AVOIDANCE_AGENT = False  # 21.54485505223213
+USE_MULTI_DECISION_AGENT = True
 
 # Observation parameters (must match training parameters!)
 observation_tree_depth = 2
@@ -106,10 +110,10 @@ action_size = 5
 
 # Creates the policy. No GPU on evaluation server.
 if not USE_PPO_AGENT:
-    policy = DDDQNPolicy(state_size, action_size, Namespace(**{'use_gpu': False}), evaluation_mode=True)
+    trained_policy = DDDQNPolicy(state_size, action_size, Namespace(**{'use_gpu': False}), evaluation_mode=True)
 else:
-    policy = PPOAgent(state_size, action_size)
-policy.load(checkpoint)
+    trained_policy = PPOAgent(state_size, action_size)
+trained_policy.load(checkpoint)
 
 #####################################################################
 # Main evaluation loop
@@ -144,6 +148,11 @@ while True:
 
     tree_observation.set_env(local_env)
     tree_observation.reset()
+
+    policy = trained_policy
+    if USE_MULTI_DECISION_AGENT:
+        policy = MultiDecisionAgent(local_env, state_size, action_size, trained_policy)
+    policy.reset(local_env)
     observation = tree_observation.get_many(list(range(nb_agents)))
 
     print("Evaluation {}: {} agents in {}x{}".format(evaluation_number, nb_agents, local_env.width, local_env.height))
@@ -199,7 +208,7 @@ while True:
                                                                                 observation_tree_depth,
                                                                                 observation_radius=observation_radius)
 
-                            action = policy.act(normalized_observation, eps=EPSILON)
+                            action = policy.act(agent_handle, normalized_observation, eps=EPSILON)
 
                     action_dict[agent_handle] = action
 

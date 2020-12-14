@@ -9,7 +9,7 @@ from torch.distributions import Categorical
 # Hyperparameters
 from reinforcement_learning.policy import Policy
 
-device = torch.device("cpu")#"cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")  # "cuda:0" if torch.cuda.is_available() else "cpu")
 print("device:", device)
 
 
@@ -111,10 +111,10 @@ class PPOAgent(Policy):
         self.optimizer = optim.Adam(self.actor_critic_model.parameters(), lr=self.learning_rate)
         self.loss_function = nn.SmoothL1Loss()  # nn.MSELoss()
 
-    def reset(self):
+    def reset(self, env):
         pass
 
-    def act(self, state, eps=None):
+    def act(self, handle, state, eps=None):
         # sample a action to take
         torch_state = torch.tensor(state, dtype=torch.float).to(device)
         dist = self.actor_critic_model.get_actor_dist(torch_state)
@@ -148,10 +148,8 @@ class PPOAgent(Policy):
                 reward_i = 1
             else:
                 done_list.insert(0, 0)
-                if reward_i < -1:
-                    reward_i = -1
-                else:
-                    reward_i = 0
+                reward_i = 0
+
             discounted_reward = reward_i + self.gamma * discounted_reward
             reward_list.insert(0, discounted_reward)
             state_next_list.insert(0, state_next_i)

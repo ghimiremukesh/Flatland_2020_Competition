@@ -55,11 +55,13 @@ class DDDQNPolicy(Policy):
             self.qnetwork_target = copy.deepcopy(self.qnetwork_local)
             self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.learning_rate)
             self.memory = ReplayBuffer(action_size, self.buffer_size, self.batch_size, self.device)
-
             self.t_step = 0
             self.loss = 0.0
+        else:
+            self.memory = ReplayBuffer(action_size, 1, 1, self.device)
+            self.loss = 0.0
 
-    def act(self, state, eps=0.):
+    def act(self, handle, state, eps=0.):
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         self.qnetwork_local.eval()
         with torch.no_grad():
@@ -151,7 +153,7 @@ class DDDQNPolicy(Policy):
             self.memory.memory = pickle.load(f)
 
     def test(self):
-        self.act(np.array([[0] * self.state_size]))
+        self.act(0, np.array([[0] * self.state_size]))
         self._learn()
 
     def clone(self):

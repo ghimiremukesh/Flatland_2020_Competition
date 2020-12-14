@@ -8,7 +8,7 @@ class ShortestPathWalkerHeuristicPolicy(Policy):
     def step(self, state, action, reward, next_state, done):
         pass
 
-    def act(self, node, eps=0.):
+    def act(self, handle, node, eps=0.):
 
         left_node = node.childs.get('L')
         forward_node = node.childs.get('F')

@@ -66,10 +66,18 @@ class DeadlockAvoidanceShortestDistanceWalker(ShortestDistanceWalker):
         self.full_shortest_distance_agent_map[(handle, position[0], position[1])] = 1
 
 
+class DummyMemory:
+    def __init__(self):
+        self.memory = []
+
+    def __len__(self):
+        return 0
+
+
 class DeadLockAvoidanceAgent(Policy):
     def __init__(self, env: RailEnv, action_size, show_debug_plot=False):
         self.env = env
-        self.memory = None
+        self.memory = DummyMemory()
         self.loss = 0
         self.action_size = action_size
         self.agent_can_move = {}
@@ -77,16 +85,16 @@ class DeadLockAvoidanceAgent(Policy):
         self.switches = {}
         self.show_debug_plot = show_debug_plot
 
-    def step(self, state, action, reward, next_state, done):
+    def step(self, handle, state, action, reward, next_state, done):
         pass
 
-    def act(self, state, eps=0.):
+    def act(self, handle, state, eps=0.):
         # Epsilon-greedy action selection
         if np.random.random() < eps:
             return np.random.choice(np.arange(self.action_size))
 
         # agent = self.env.agents[state[0]]
-        check = self.agent_can_move.get(state[0], None)
+        check = self.agent_can_move.get(handle, None)
         if check is None:
             return RailEnvActions.STOP_MOVING
         return check[3]
@@ -94,7 +102,8 @@ class DeadLockAvoidanceAgent(Policy):
     def get_agent_can_move_value(self, handle):
         return self.agent_can_move_value.get(handle, np.inf)
 
-    def reset(self):
+    def reset(self, env):
+        self.env = env
         self.agent_positions = None
         self.shortest_distance_walker = None
         self.switches = {}

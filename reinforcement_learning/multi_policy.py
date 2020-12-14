@@ -1,4 +1,5 @@
 import numpy as np
+from flatland.envs.rail_env import RailEnv
 
 from reinforcement_learning.policy import Policy
 from reinforcement_learning.ppo_agent import PPOAgent
@@ -45,9 +46,9 @@ class MultiPolicy(Policy):
         self.loss = self.ppo_policy.loss
         return action_ppo
 
-    def reset(self):
-        self.ppo_policy.reset()
-        self.deadlock_avoidance_policy.reset()
+    def reset(self, env: RailEnv):
+        self.ppo_policy.reset(env)
+        self.deadlock_avoidance_policy.reset(env)
 
     def test(self):
         self.ppo_policy.test()

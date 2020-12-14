@@ -21,6 +21,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
 from reinforcement_learning.ppo_agent import PPOAgent
+from reinforcement_learning.ppo_deadlockavoidance_agent import MultiDecisionAgent
+from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import get_agent_positions, check_for_deadlock
 
 base_dir = Path(__file__).resolve().parent.parent
@@ -174,6 +176,11 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     policy = DDDQNPolicy(state_size, action_size, train_params)
     if True:
         policy = PPOAgent(state_size, action_size)
+    if False:
+        policy = DeadLockAvoidanceAgent(train_env, action_size)
+    if True:
+        policy = MultiDecisionAgent(train_env, state_size, action_size, policy)
+
     # Load existing policy
     if train_params.load_policy is not "":
         policy.load(train_params.load_policy)
@@ -226,7 +233,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         train_env = create_rail_env(train_env_params, tree_observation)
         obs, info = train_env.reset(regenerate_rail=True, regenerate_schedule=True)
-        policy.reset()
+        policy.reset(train_env)
         reset_timer.end()
 
         if train_params.render:
@@ -261,8 +268,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 agent = train_env.agents[agent_handle]
                 if info['action_required'][agent_handle]:
                     update_values[agent_handle] = True
-                    action = policy.act(agent_obs[agent_handle], eps=eps_start)
-
+                    action = policy.act(agent_handle, agent_obs[agent_handle], eps=eps_start)
                     action_count[action] += 1
                     actions_taken.append(action)
                 else:
@@ -288,7 +294,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                         all_rewards[agent_handle] = 0.0
                         if done[agent_handle] == False:
                             if check_for_deadlock(agent_handle, train_env, agent_positions):
-                                all_rewards[agent_handle] = -1.0
+                                all_rewards[agent_handle] = -5.0
                             else:
                                 pos = agent.position
                                 possible_transitions = train_env.rail.get_transitions(*pos, agent.direction)
@@ -471,6 +477,7 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
         score = 0.0
 
         obs, info = env.reset(regenerate_rail=True, regenerate_schedule=True)
+        policy.reset(env)
         final_step = 0
 
         policy.start_episode(train=False)
@@ -484,7 +491,7 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
                 action = 0
                 if info['action_required'][agent]:
                     if tree_observation.check_is_observation_valid(agent_obs[agent]):
-                        action = policy.act(agent_obs[agent], eps=0.0)
+                        action = policy.act(agent, agent_obs[agent], eps=0.0)
                 action_dict.update({agent: action})
             policy.end_step(train=False)
             obs, all_rewards, done, info = env.step(action_dict)

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 
 import numpy as np
 from flatland.core.env_observation_builder import ObservationBuilder
@@ -6,6 +6,7 @@ from flatland.core.grid.grid4_utils import get_new_position
 from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.rail_env import fast_count_nonzero, fast_argmax, RailEnvActions
 
+from utils.agent_can_choose_helper import AgentCanChooseHelper
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import check_for_deadlock, get_agent_positions
 
@@ -24,116 +25,14 @@ Author: Adrian Egli (adrian.egli@gmail.com)
 
 class FastTreeObs(ObservationBuilder):
 
-    def __init__(self, max_depth):
+    def __init__(self, max_depth: Any):
         self.max_depth = max_depth
         self.observation_dim = 41
-
-    def build_data(self):
-        if self.env is not None:
-            self.env.dev_obs_dict = {}
-        self.switches = {}
-        self.switches_neighbours = {}
-        self.debug_render_list = []
-        self.debug_render_path_list = []
-        if self.env is not None:
-            self.find_all_cell_where_agent_can_choose()
-            self.dead_lock_avoidance_agent = DeadLockAvoidanceAgent(self.env, 5, False)
-        else:
-            self.dead_lock_avoidance_agent = None
-
-    def find_all_switches(self):
-        # Search the environment (rail grid) for all switch cells. A switch is a cell where more than one tranisation
-        # exists and collect all direction where the switch is a switch.
-        self.switches = {}
-        for h in range(self.env.height):
-            for w in range(self.env.width):
-                pos = (h, w)
-                for dir in range(4):
-                    possible_transitions = self.env.rail.get_transitions(*pos, dir)
-                    num_transitions = fast_count_nonzero(possible_transitions)
-                    if num_transitions > 1:
-                        if pos not in self.switches.keys():
-                            self.switches.update({pos: [dir]})
-                        else:
-                            self.switches[pos].append(dir)
-
-    def find_all_switch_neighbours(self):
-        # Collect all cells where is a neighbour to a switch cell. All cells are neighbour where the agent can make
-        # just one step and he stands on a switch. A switch is a cell where the agents has more than one transition.
-        self.switches_neighbours = {}
-        for h in range(self.env.height):
-            for w in range(self.env.width):
-                # look one step forward
-                for dir in range(4):
-                    pos = (h, w)
-                    possible_transitions = self.env.rail.get_transitions(*pos, dir)
-                    for d in range(4):
-                        if possible_transitions[d] == 1:
-                            new_cell = get_new_position(pos, d)
-                            if new_cell in self.switches.keys() and pos not in self.switches.keys():
-                                if pos not in self.switches_neighbours.keys():
-                                    self.switches_neighbours.update({pos: [dir]})
-                                else:
-                                    self.switches_neighbours[pos].append(dir)
-
-    def find_all_cell_where_agent_can_choose(self):
-        # prepare the memory - collect all cells where the agent can choose more than FORWARD/STOP.
-        self.find_all_switches()
-        self.find_all_switch_neighbours()
-
-    def check_agent_decision(self, position, direction):
-        # Decide whether the agent is
-        # - on a switch
-        # - at a switch neighbour (near to switch). The switch must be a switch where the agent has more option than
-        #   FORWARD/STOP
-        # - all switch : doesn't matter whether the agent has more options than FORWARD/STOP
-        # - all switch neightbors : doesn't matter the agent has more then one options (transistion) when he reach the
-        #   switch
-        agents_on_switch = False
-        agents_on_switch_all = False
-        agents_near_to_switch = False
-        agents_near_to_switch_all = False
-        if position in self.switches.keys():
-            agents_on_switch = direction in self.switches[position]
-            agents_on_switch_all = True
-
-        if position in self.switches_neighbours.keys():
-            new_cell = get_new_position(position, direction)
-            if new_cell in self.switches.keys():
-                if not direction in self.switches[new_cell]:
-                    agents_near_to_switch = direction in self.switches_neighbours[position]
-            else:
-                agents_near_to_switch = direction in self.switches_neighbours[position]
-
-            agents_near_to_switch_all = direction in self.switches_neighbours[position]
-
-        return agents_on_switch, agents_near_to_switch, agents_near_to_switch_all, agents_on_switch_all
-
-    def required_agent_decision(self):
-        agents_can_choose = {}
-        agents_on_switch = {}
-        agents_on_switch_all = {}
-        agents_near_to_switch = {}
-        agents_near_to_switch_all = {}
-        for a in range(self.env.get_num_agents()):
-            ret_agents_on_switch, ret_agents_near_to_switch, ret_agents_near_to_switch_all, ret_agents_on_switch_all = \
-                self.check_agent_decision(
-                    self.env.agents[a].position,
-                    self.env.agents[a].direction)
-            agents_on_switch.update({a: ret_agents_on_switch})
-            agents_on_switch_all.update({a: ret_agents_on_switch_all})
-            ready_to_depart = self.env.agents[a].status == RailAgentStatus.READY_TO_DEPART
-            agents_near_to_switch.update({a: (ret_agents_near_to_switch and not ready_to_depart)})
-
-            agents_can_choose.update({a: agents_on_switch[a] or agents_near_to_switch[a]})
-
-            agents_near_to_switch_all.update({a: (ret_agents_near_to_switch_all and not ready_to_depart)})
-
-        return agents_can_choose, agents_on_switch, agents_near_to_switch, agents_near_to_switch_all, agents_on_switch_all
+        self.agent_can_choose_helper = None
 
     def debug_render(self, env_renderer):
         agents_can_choose, agents_on_switch, agents_near_to_switch, agents_near_to_switch_all = \
-            self.required_agent_decision()
+            self.agent_can_choose_helper.required_agent_decision()
         self.env.dev_obs_dict = {}
         for a in range(max(3, self.env.get_num_agents())):
             self.env.dev_obs_dict.update({a: []})
@@ -156,13 +55,20 @@ class FastTreeObs(ObservationBuilder):
         env_renderer.gl.agent_colors[3] = env_renderer.gl.rgb_s2i("550000")
 
         self.env.dev_obs_dict[0] = self.debug_render_list
-        self.env.dev_obs_dict[1] = self.switches.keys()
-        self.env.dev_obs_dict[2] = self.switches_neighbours.keys()
+        self.env.dev_obs_dict[1] = self.agent_can_choose_helper.switches.keys()
+        self.env.dev_obs_dict[2] = self.agent_can_choose_helper.switches_neighbours.keys()
         self.env.dev_obs_dict[3] = self.debug_render_path_list
 
     def reset(self):
-        self.build_data()
-        return
+        if self.agent_can_choose_helper is None:
+            self.agent_can_choose_helper = AgentCanChooseHelper()
+        self.agent_can_choose_helper.build_data(self.env)
+        self.debug_render_list = []
+        self.debug_render_path_list = []
+        if self.env is not None:
+            self.dead_lock_avoidance_agent = DeadLockAvoidanceAgent(self.env, 5, False)
+        else:
+            self.dead_lock_avoidance_agent = None
 
     def _explore(self, handle, new_position, new_direction, distance_map, depth=0):
         has_opp_agent = 0
@@ -201,7 +107,7 @@ class FastTreeObs(ObservationBuilder):
             # agent_near_to_switch == TRUE -> One cell before the switch, where the agent can decide
             #
             agents_on_switch, agents_near_to_switch, _, _ = \
-                self.check_agent_decision(new_position, new_direction)
+                self.agent_can_choose_helper.check_agent_decision(new_position, new_direction)
 
             if agents_near_to_switch:
                 # The exploration was walking on a path where the agent can not decide
@@ -250,7 +156,7 @@ class FastTreeObs(ObservationBuilder):
         self.dead_lock_avoidance_agent.end_step(train=False)
         return observations
 
-    def get(self, handle):
+    def get(self, handle: int = 0):
         # all values are [0,1]
         # observation[0]  : 1 path towards target (direction 0) / otherwise 0 -> path is longer or there is no path
         # observation[1]  : 1 path towards target (direction 1) / otherwise 0 -> path is longer or there is no path
@@ -340,14 +246,14 @@ class FastTreeObs(ObservationBuilder):
             agents_near_to_switch, \
             agents_near_to_switch_all, \
             agents_on_switch_all = \
-                self.check_agent_decision(agent_virtual_position, agent.direction)
+                self.agent_can_choose_helper.check_agent_decision(agent_virtual_position, agent.direction)
 
             observation[7] = int(agents_on_switch)
             observation[8] = int(agents_on_switch_all)
             observation[9] = int(agents_near_to_switch)
             observation[10] = int(agents_near_to_switch_all)
 
-            action = self.dead_lock_avoidance_agent.act([handle], 0.0)
+            action = self.dead_lock_avoidance_agent.act(handle, None, 0.0)
             observation[35] = int(action == RailEnvActions.STOP_MOVING)
 
             observation[40] = int(check_for_deadlock(handle, self.env, self.agent_positions))
