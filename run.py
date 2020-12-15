@@ -32,6 +32,7 @@ from flatland.evaluators.client import TimeoutException
 
 from reinforcement_learning.ppo_agent import PPOAgent
 from reinforcement_learning.ppo_deadlockavoidance_agent import MultiDecisionAgent
+from utils.agent_action_config import get_action_size, map_actions
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import check_if_all_blocked
 from utils.fast_tree_obs import FastTreeObs
@@ -60,14 +61,14 @@ checkpoint = "./checkpoints/201211095604-12000.pth"  # DDDQN: 17.3862941316504
 checkpoint = "./checkpoints/201211164554-9400.pth"  # DDDQN: 16.09241366013537
 checkpoint = "./checkpoints/201213181400-6800.pth"  # PPO: 13.944402986414723
 checkpoint = "./checkpoints/201214140158-5000.pth"  # USE_MULTI_DECISION_AGENT with DDDQN: 13.944402986414723
-checkpoint = "./checkpoints/201214160604-3000.pth"  # USE_MULTI_DECISION_AGENT with DDDQN: 13.944402986414723
+checkpoint = "./checkpoints/201215120518-3700.pth"  # USE_MULTI_DECISION_AGENT with PPO: 13.944402986414723
 
 EPSILON = 0.0
 
 # Use last action cache
 USE_ACTION_CACHE = False
 USE_DEAD_LOCK_AVOIDANCE_AGENT = False  # 21.54485505223213
-USE_MULTI_DECISION_AGENT = True
+USE_MULTI_DECISION_AGENT = False
 
 # Observation parameters (must match training parameters!)
 observation_tree_depth = 2
@@ -106,7 +107,7 @@ else:
     n_nodes = sum([np.power(4, i) for i in range(observation_tree_depth + 1)])
     state_size = n_features_per_node * n_nodes
 
-action_size = 5
+action_size = get_action_size()
 
 # Creates the policy. No GPU on evaluation server.
 if not USE_PPO_AGENT:
@@ -221,7 +222,7 @@ while True:
                 time_taken_by_controller.append(agent_time)
 
                 time_start = time.time()
-                _, all_rewards, done, info = remote_client.env_step(action_dict)
+                _, all_rewards, done, info = remote_client.env_step(map_actions(action_dict, get_action_size))
                 step_time = time.time() - time_start
                 time_taken_per_step.append(step_time)
 

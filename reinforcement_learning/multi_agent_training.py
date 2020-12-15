@@ -24,6 +24,7 @@ from reinforcement_learning.ppo_agent import PPOAgent
 from reinforcement_learning.ppo_deadlockavoidance_agent import MultiDecisionAgent
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import get_agent_positions, check_for_deadlock
+from utils.agent_action_config import get_flatland_full_action_size, get_action_size, map_actions, map_action
 
 base_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(base_dir))
@@ -155,10 +156,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         # Calculate the state size given the depth of the tree observation and the number of features
         state_size = tree_observation.observation_dim
 
-    # The action space of flatland is 5 discrete actions
-    action_size = 5
-
-    action_count = [0] * action_size
+    action_count = [0] * get_flatland_full_action_size()
     action_dict = dict()
     agent_obs = [None] * n_agents
     agent_prev_obs = [None] * n_agents
@@ -173,13 +171,13 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     completion_window = deque(maxlen=checkpoint_interval)
 
     # Double Dueling DQN policy
-    policy = DDDQNPolicy(state_size, action_size, train_params)
-    if True:
-        policy = PPOAgent(state_size, action_size)
+    policy = DDDQNPolicy(state_size, get_action_size(), train_params)
     if False:
-        policy = DeadLockAvoidanceAgent(train_env, action_size)
+        policy = PPOAgent(state_size, get_action_size())
     if True:
-        policy = MultiDecisionAgent(train_env, state_size, action_size, policy)
+        policy = DeadLockAvoidanceAgent(train_env, get_action_size())
+    if True:
+        policy = MultiDecisionAgent(train_env, state_size, get_action_size(), policy)
 
     # Load existing policy
     if train_params.load_policy is not "":
@@ -269,8 +267,8 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 if info['action_required'][agent_handle]:
                     update_values[agent_handle] = True
                     action = policy.act(agent_handle, agent_obs[agent_handle], eps=eps_start)
-                    action_count[action] += 1
-                    actions_taken.append(action)
+                    action_count[map_action(action, get_action_size())] += 1
+                    actions_taken.append(map_action(action, get_action_size()))
                 else:
                     # An action is not required if the train hasn't joined the railway network,
                     # if it already reached its target, or if is currently malfunctioning.
@@ -282,7 +280,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
             # Environment step
             step_timer.start()
-            next_obs, all_rewards, done, info = train_env.step(action_dict)
+            next_obs, all_rewards, done, info = train_env.step(map_actions(action_dict, get_action_size()))
 
             # Reward shaping .Dead-lock .NotMoving .NotStarted
             if False:
@@ -290,6 +288,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 for agent_handle in train_env.get_agent_handles():
                     agent = train_env.agents[agent_handle]
                     act = action_dict.get(agent_handle, RailEnvActions.DO_NOTHING)
+                    act = map_action(act, get_action_size())
                     if agent.status == RailAgentStatus.ACTIVE:
                         all_rewards[agent_handle] = 0.0
                         if done[agent_handle] == False:
@@ -305,7 +304,8 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                                 else:
                                     all_rewards[agent_handle] = -0.01
                         else:
-                            all_rewards[agent_handle] = 1.0
+                            all_rewards[agent_handle] *= 10.0
+                            all_rewards[agent_handle] += 1.0
 
             step_timer.end()
 
@@ -325,7 +325,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                     learn_timer.start()
                     policy.step(agent_handle,
                                 agent_prev_obs[agent_handle],
-                                agent_prev_action[agent_handle],
+                                agent_prev_action[agent_handle] - 1,
                                 all_rewards[agent_handle],
                                 agent_obs[agent_handle],
                                 done[agent_handle])
@@ -375,19 +375,19 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 policy.save_replay_buffer('./replay_buffers/' + training_id + '-' + str(episode_idx) + '.pkl')
 
             # reset action count
-            action_count = [0] * action_size
+            action_count = [0] * get_flatland_full_action_size()
 
         print(
             '\r🚂 Episode {}'
-            '\t 🚉 nAgents {}'
-            '\t 🏆 Score: {:7.3f}'
+            '\t 🚉 nAgents {:2}/{:2}'
+            ' 🏆 Score: {:7.3f}'
             ' Avg: {:7.3f}'
             '\t 💯 Done: {:6.2f}%'
             ' Avg: {:6.2f}%'
             '\t 🎲 Epsilon: {:.3f} '
             '\t 🔀 Action Probs: {}'.format(
                 episode_idx,
-                train_env_params.n_agents,
+                train_env_params.n_agents, train_env.get_num_agents(),
                 normalized_score,
                 smoothed_normalized_score,
                 100 * completion,
@@ -494,7 +494,7 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
                         action = policy.act(agent, agent_obs[agent], eps=0.0)
                 action_dict.update({agent: action})
             policy.end_step(train=False)
-            obs, all_rewards, done, info = env.step(action_dict)
+            obs, all_rewards, done, info = env.step(map_actions(action_dict, get_action_size()))
 
             for agent in env.get_agent_handles():
                 score += all_rewards[agent]

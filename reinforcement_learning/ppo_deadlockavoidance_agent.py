@@ -35,7 +35,10 @@ class MultiDecisionAgent(Policy):
             if agents_on_switch or agents_near_to_switch:
                 return self.learning_agent.act(handle, state, eps)
             else:
-                return self.dead_lock_avoidance_agent.act(handle, state, -1.0)
+                act = self.dead_lock_avoidance_agent.act(handle, state, -1.0)
+                if self.action_size == 4:
+                    act = max(act - 1, 0)
+                return act
         # Agent is still at target cell
         return RailEnvActions.DO_NOTHING
 

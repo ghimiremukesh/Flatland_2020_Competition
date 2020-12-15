@@ -95,9 +95,12 @@ class DeadLockAvoidanceAgent(Policy):
 
         # agent = self.env.agents[state[0]]
         check = self.agent_can_move.get(handle, None)
-        if check is None:
-            return RailEnvActions.STOP_MOVING
-        return check[3]
+        act = RailEnvActions.STOP_MOVING
+        if check is not None:
+            act = check[3]
+        if self.action_size == 4:
+            act = max(act - 1, 0)
+        return act
 
     def get_agent_can_move_value(self, handle):
         return self.agent_can_move_value.get(handle, np.inf)
