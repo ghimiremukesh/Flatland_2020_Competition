@@ -267,8 +267,8 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 if info['action_required'][agent_handle]:
                     update_values[agent_handle] = True
                     action = policy.act(agent_handle, agent_obs[agent_handle], eps=eps_start)
-                    action_count[map_action(action, get_action_size())] += 1
-                    actions_taken.append(map_action(action, get_action_size()))
+                    action_count[map_action(action)] += 1
+                    actions_taken.append(map_action(action))
                 else:
                     # An action is not required if the train hasn't joined the railway network,
                     # if it already reached its target, or if is currently malfunctioning.
@@ -280,7 +280,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
             # Environment step
             step_timer.start()
-            next_obs, all_rewards, done, info = train_env.step(map_actions(action_dict, get_action_size()))
+            next_obs, all_rewards, done, info = train_env.step(map_actions(action_dict))
 
             # Reward shaping .Dead-lock .NotMoving .NotStarted
             if False:
@@ -288,7 +288,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 for agent_handle in train_env.get_agent_handles():
                     agent = train_env.agents[agent_handle]
                     act = action_dict.get(agent_handle, RailEnvActions.DO_NOTHING)
-                    act = map_action(act, get_action_size())
+                    act = map_action(act)
                     if agent.status == RailAgentStatus.ACTIVE:
                         all_rewards[agent_handle] = 0.0
                         if done[agent_handle] == False:
@@ -494,7 +494,7 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
                         action = policy.act(agent, agent_obs[agent], eps=0.0)
                 action_dict.update({agent: action})
             policy.end_step(train=False)
-            obs, all_rewards, done, info = env.step(map_actions(action_dict, get_action_size()))
+            obs, all_rewards, done, info = env.step(map_actions(action_dict))
 
             for agent in env.get_agent_handles():
                 score += all_rewards[agent]

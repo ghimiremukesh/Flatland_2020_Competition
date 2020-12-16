@@ -214,7 +214,7 @@ while True:
                 time_taken_by_controller.append(agent_time)
 
                 time_start = time.time()
-                _, all_rewards, done, info = remote_client.env_step(map_actions(action_dict, get_action_size))
+                _, all_rewards, done, info = remote_client.env_step(map_actions(action_dict))
                 step_time = time.time() - time_start
                 time_taken_per_step.append(step_time)
 
