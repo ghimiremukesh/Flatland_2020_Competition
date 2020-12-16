@@ -22,9 +22,9 @@ from torch.utils.tensorboard import SummaryWriter
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
 from reinforcement_learning.ppo_agent import PPOAgent
 from reinforcement_learning.ppo_deadlockavoidance_agent import MultiDecisionAgent
+from utils.agent_action_config import get_flatland_full_action_size, get_action_size, map_actions, map_action
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import get_agent_positions, check_for_deadlock
-from utils.agent_action_config import get_flatland_full_action_size, get_action_size, map_actions, map_action
 
 base_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(base_dir))
@@ -174,9 +174,9 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     policy = DDDQNPolicy(state_size, get_action_size(), train_params)
     if False:
         policy = PPOAgent(state_size, get_action_size())
-    if True:
+    if False:
         policy = DeadLockAvoidanceAgent(train_env, get_action_size())
-    if True:
+    if False:
         policy = MultiDecisionAgent(train_env, state_size, get_action_size(), policy)
 
     # Load existing policy
@@ -387,7 +387,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             '\t 🎲 Epsilon: {:.3f} '
             '\t 🔀 Action Probs: {}'.format(
                 episode_idx,
-                train_env_params.n_agents, train_env.get_num_agents(),
+                train_env_params.n_agents, number_of_agents,
                 normalized_score,
                 smoothed_normalized_score,
                 100 * completion,
@@ -521,11 +521,11 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=12000, type=int)
-    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=2,
+    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=3,
                         type=int)
-    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=0,
+    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=2,
                         type=int)
-    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=5, type=int)
+    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=10, type=int)
     parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=100, type=int)
     parser.add_argument("--eps_start", help="max exploration", default=0.1, type=float)
     parser.add_argument("--eps_end", help="min exploration", default=0.005, type=float)

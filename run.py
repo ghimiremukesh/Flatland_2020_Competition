@@ -49,26 +49,18 @@ from reinforcement_learning.dddqn_policy import DDDQNPolicy
 # Print per-step logs
 VERBOSE = True
 USE_FAST_TREEOBS = True
-USE_PPO_AGENT = True
+USE_PPO_AGENT = False
 
 # Checkpoint to use (remember to push it!)
-checkpoint = "./checkpoints/201124171810-7800.pth"  # DDDQN: 18.249244799876152 DEPTH=2 AGENTS=10
-# checkpoint = "./checkpoints/201126150143-5200.pth" # DDDQN: 18.249244799876152 DEPTH=2 AGENTS=10
-# checkpoint = "./checkpoints/201126160144-2000.pth" # DDDQN: 18.249244799876152 DEPTH=2 AGENTS=10
-checkpoint = "./checkpoints/201207144650-20000.pth"  # PPO: 14.45790721540786
-checkpoint = "./checkpoints/201211063511-6300.pth"  # DDDQN: 16.948349308440857
-checkpoint = "./checkpoints/201211095604-12000.pth"  # DDDQN: 17.3862941316504
-checkpoint = "./checkpoints/201211164554-9400.pth"  # DDDQN: 16.09241366013537
-checkpoint = "./checkpoints/201213181400-6800.pth"  # PPO: 13.944402986414723
-checkpoint = "./checkpoints/201214140158-5000.pth"  # USE_MULTI_DECISION_AGENT with DDDQN: 13.944402986414723
-checkpoint = "./checkpoints/201215120518-3700.pth"  # USE_MULTI_DECISION_AGENT with PPO: 13.944402986414723
+checkpoint = "./checkpoints/201215160226-12000.pth"  #
+# checkpoint = "./checkpoints/201215212134-12000.pth"  #
 
 EPSILON = 0.0
 
 # Use last action cache
 USE_ACTION_CACHE = False
 USE_DEAD_LOCK_AVOIDANCE_AGENT = False  # 21.54485505223213
-USE_MULTI_DECISION_AGENT = False
+USE_MULTI_DECISION_AGENT = True
 
 # Observation parameters (must match training parameters!)
 observation_tree_depth = 2
