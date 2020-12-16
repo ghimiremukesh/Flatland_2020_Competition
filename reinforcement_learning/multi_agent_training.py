@@ -283,28 +283,26 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             next_obs, all_rewards, done, info = train_env.step(map_actions(action_dict))
 
             # Reward shaping .Dead-lock .NotMoving .NotStarted
-            if False:
+            if True:
                 agent_positions = get_agent_positions(train_env)
                 for agent_handle in train_env.get_agent_handles():
                     agent = train_env.agents[agent_handle]
-                    act = action_dict.get(agent_handle, RailEnvActions.DO_NOTHING)
-                    act = map_action(act)
+                    act = map_action(action_dict.get(agent_handle, RailEnvActions.DO_NOTHING))
                     if agent.status == RailAgentStatus.ACTIVE:
-                        all_rewards[agent_handle] = 0.0
                         if done[agent_handle] == False:
                             if check_for_deadlock(agent_handle, train_env, agent_positions):
-                                all_rewards[agent_handle] = -5.0
+                                all_rewards[agent_handle] -= 5.0
                             else:
                                 pos = agent.position
                                 possible_transitions = train_env.rail.get_transitions(*pos, agent.direction)
                                 num_transitions = fast_count_nonzero(possible_transitions)
                                 if num_transitions < 2 and ((act != RailEnvActions.MOVE_FORWARD) or
                                                             (act != RailEnvActions.STOP_MOVING)):
-                                    all_rewards[agent_handle] = -0.5
+                                    all_rewards[agent_handle] -= 0.5
                                 else:
-                                    all_rewards[agent_handle] = -0.01
+                                    all_rewards[agent_handle] -= 0.01
                         else:
-                            all_rewards[agent_handle] *= 10.0
+                            all_rewards[agent_handle] *= 9.0
                             all_rewards[agent_handle] += 1.0
 
             step_timer.end()
@@ -523,9 +521,9 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=12000, type=int)
     parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=3,
                         type=int)
-    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=2,
+    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=1,
                         type=int)
-    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=10, type=int)
+    parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=1, type=int)
     parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=100, type=int)
     parser.add_argument("--eps_start", help="max exploration", default=0.1, type=float)
     parser.add_argument("--eps_end", help="min exploration", default=0.005, type=float)
