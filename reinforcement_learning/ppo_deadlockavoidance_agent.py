@@ -39,7 +39,7 @@ class MultiDecisionAgent(Policy):
                 act = self.dead_lock_avoidance_agent.act(handle, state, -1.0)
                 return map_rail_env_action(act)
         # Agent is still at target cell
-        return RailEnvActions.DO_NOTHING
+        return map_rail_env_action(RailEnvActions.DO_NOTHING)
 
     def save(self, filename):
         self.dead_lock_avoidance_agent.save(filename)

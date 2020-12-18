@@ -107,8 +107,8 @@ class PPOPolicy(Policy):
         self.weight_loss = 0.25
         self.weight_entropy = 0.01
 
-        self.buffer_size = 2_000
-        self.batch_size = 64
+        self.buffer_size = 32_000
+        self.batch_size = 1024
         self.buffer_min_size = 0
         self.use_replay_buffer = True
         self.device = device
@@ -186,7 +186,6 @@ class PPOPolicy(Policy):
             self._push_transitions_to_replay_buffer(state_list, action_list,
                                                     reward_list, state_next_list,
                                                     done_list, prob_a_list)
-
 
         # convert data to torch tensors
         states, actions, rewards, states_next, dones, prob_actions = \

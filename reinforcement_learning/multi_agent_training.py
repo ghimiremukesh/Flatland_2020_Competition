@@ -176,7 +176,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         policy = PPOPolicy(state_size, get_action_size())
     if False:
         policy = DeadLockAvoidanceAgent(train_env, get_action_size())
-    if False:
+    if True:
         policy = MultiDecisionAgent(train_env, state_size, get_action_size(), policy)
 
     # Load existing policy
