@@ -7,6 +7,7 @@ from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.rail_env import RailEnv, RailEnvActions, fast_count_nonzero
 
 from reinforcement_learning.policy import Policy
+from utils.agent_action_config import map_rail_env_action
 from utils.shortest_distance_walker import ShortestDistanceWalker
 
 
@@ -98,9 +99,7 @@ class DeadLockAvoidanceAgent(Policy):
         act = RailEnvActions.STOP_MOVING
         if check is not None:
             act = check[3]
-        if self.action_size == 4:
-            act = max(act - 1, 0)
-        return act
+        return map_rail_env_action(act)
 
     def get_agent_can_move_value(self, handle):
         return self.agent_can_move_value.get(handle, np.inf)

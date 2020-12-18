@@ -1,6 +1,7 @@
 import copy
 import os
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -94,21 +95,21 @@ class ActorCriticModel(nn.Module):
         self.critic = self._load(self.critic, filename + ".critic")
 
 
-class PPOAgent(Policy):
+class PPOPolicy(Policy):
     def __init__(self, state_size, action_size):
-        super(PPOAgent, self).__init__()
-
+        print(">> PPOPolicy")
+        super(PPOPolicy, self).__init__()
         # parameters
-        self.learning_rate = 1.0e-5
+        self.learning_rate = 1.0e-3
         self.gamma = 0.95
-        self.surrogate_eps_clip = 0.1
-        self.K_epoch = 50
-        self.weight_loss = 0.5
+        self.surrogate_eps_clip = 0.01
+        self.K_epoch = 5
+        self.weight_loss = 0.25
         self.weight_entropy = 0.01
 
-        self.buffer_size = 32_000
-        self.batch_size = 512
-        self.buffer_min_size = 8_000
+        self.buffer_size = 2_000
+        self.batch_size = 64
+        self.buffer_min_size = 0
         self.use_replay_buffer = True
         self.device = device
 
@@ -117,7 +118,7 @@ class PPOAgent(Policy):
         self.loss = 0
         self.actor_critic_model = ActorCriticModel(state_size, action_size, self.device)
         self.optimizer = optim.Adam(self.actor_critic_model.parameters(), lr=self.learning_rate)
-        self.loss_function = nn.SmoothL1Loss()  # nn.MSELoss()
+        self.loss_function = nn.MSELoss()  # nn.SmoothL1Loss()
 
     def reset(self, env):
         pass
@@ -139,6 +140,22 @@ class PPOAgent(Policy):
         transition = (state, action, reward, next_state, action_logprobs.item(), done)
         self.current_episode_memory.push_transition(handle, transition)
 
+    def _push_transitions_to_replay_buffer(self,
+                                           state_list,
+                                           action_list,
+                                           reward_list,
+                                           state_next_list,
+                                           done_list,
+                                           prob_a_list):
+        for idx in range(len(reward_list)):
+            state_i = state_list[idx]
+            action_i = action_list[idx]
+            reward_i = reward_list[idx]
+            state_next_i = state_next_list[idx]
+            done_i = done_list[idx]
+            prob_action_i = prob_a_list[idx]
+            self.memory.add(state_i, action_i, reward_i, state_next_i, done_i, prob_action_i)
+
     def _convert_transitions_to_torch_tensors(self, transitions_array):
         # build empty lists(arrays)
         state_list, action_list, reward_list, state_next_list, prob_a_list, done_list = [], [], [], [], [], []
@@ -153,18 +170,23 @@ class PPOAgent(Policy):
             if done_i:
                 discounted_reward = 0
                 done_list.insert(0, 1)
-                reward_i = 1
             else:
                 done_list.insert(0, 0)
-                reward_i = 0
 
             discounted_reward = reward_i + self.gamma * discounted_reward
             reward_list.insert(0, discounted_reward)
             state_next_list.insert(0, state_next_i)
             prob_a_list.insert(0, prob_action_i)
 
-            if self.use_replay_buffer:
-                self.memory.add(state_i, action_i, discounted_reward, state_next_i, done_i)
+        # standard-normalize rewards
+        reward_list = np.array(reward_list)
+        reward_list = (reward_list - reward_list.mean()) / (reward_list.std() + 1.e-5)
+
+        if self.use_replay_buffer:
+            self._push_transitions_to_replay_buffer(state_list, action_list,
+                                                    reward_list, state_next_list,
+                                                    done_list, prob_a_list)
+
 
         # convert data to torch tensors
         states, actions, rewards, states_next, dones, prob_actions = \
@@ -175,10 +197,17 @@ class PPOAgent(Policy):
             torch.tensor(done_list, dtype=torch.float).to(self.device), \
             torch.tensor(prob_a_list).to(self.device)
 
-        # standard-normalize rewards
-        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1.e-5)
-
         return states, actions, rewards, states_next, dones, prob_actions
+
+    def _get_transitions_from_replay_buffer(self, states, actions, rewards, states_next, dones, probs_action):
+        if len(self.memory) > self.buffer_min_size and len(self.memory) > self.batch_size:
+            states, actions, rewards, states_next, dones, probs_action = self.memory.sample()
+            actions = torch.squeeze(actions)
+            rewards = torch.squeeze(rewards)
+            states_next = torch.squeeze(states_next)
+            dones = torch.squeeze(dones)
+            probs_action = torch.squeeze(probs_action)
+        return states, actions, rewards, states_next, dones, probs_action
 
     def train_net(self):
         # All agents have to propagate their experiences made during past episode
@@ -189,11 +218,15 @@ class PPOAgent(Policy):
                 # Convert the replay buffer to torch tensors (arrays)
                 states, actions, rewards, states_next, dones, probs_action = \
                     self._convert_transitions_to_torch_tensors(agent_episode_history)
+
                 # Optimize policy for K epochs:
                 for k_loop in range(int(self.K_epoch)):
-                    if self.use_replay_buffer and k_loop > 0:
-                        if len(self.memory) > self.buffer_min_size and len(self.memory) > self.batch_size:
-                            states, actions, rewards, states_next, dones, probs_action = self.memory.sample()
+
+                    if self.use_replay_buffer:
+                        states, actions, rewards, states_next, dones, probs_action = \
+                            self._get_transitions_from_replay_buffer(
+                                states, actions, rewards, states_next, dones, probs_action
+                            )
 
                     # Evaluating actions (actor) and values (critic)
                     logprobs, state_values, dist_entropy = self.actor_critic_model.evaluate(states, actions)
@@ -222,7 +255,6 @@ class PPOAgent(Policy):
                     # Transfer the current loss to the agents loss (information) for debug purpose only
                     self.loss = loss.mean().detach().cpu().numpy()
 
-        self.K_epoch = max(3, self.K_epoch - 0.01)
         # Reset all collect transition data
         self.current_episode_memory.reset()
 
@@ -252,7 +284,7 @@ class PPOAgent(Policy):
         self.optimizer = self._load(self.optimizer, filename + ".optimizer")
 
     def clone(self):
-        policy = PPOAgent(self.state_size, self.action_size)
+        policy = PPOPolicy(self.state_size, self.action_size)
         policy.actor_critic_model = copy.deepcopy(self.actor_critic_model)
         policy.optimizer = copy.deepcopy(self.optimizer)
         return self

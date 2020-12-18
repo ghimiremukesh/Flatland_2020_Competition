@@ -20,7 +20,7 @@ from flatland.utils.rendertools import RenderTool
 from torch.utils.tensorboard import SummaryWriter
 
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
-from reinforcement_learning.ppo_agent import PPOAgent
+from reinforcement_learning.ppo_agent import PPOPolicy
 from reinforcement_learning.ppo_deadlockavoidance_agent import MultiDecisionAgent
 from utils.agent_action_config import get_flatland_full_action_size, get_action_size, map_actions, map_action
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
@@ -173,7 +173,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     # Double Dueling DQN policy
     policy = DDDQNPolicy(state_size, get_action_size(), train_params)
     if True:
-        policy = PPOAgent(state_size, get_action_size())
+        policy = PPOPolicy(state_size, get_action_size())
     if False:
         policy = DeadLockAvoidanceAgent(train_env, get_action_size())
     if False:
@@ -283,7 +283,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             next_obs, all_rewards, done, info = train_env.step(map_actions(action_dict))
 
             # Reward shaping .Dead-lock .NotMoving .NotStarted
-            if True:
+            if False:
                 agent_positions = get_agent_positions(train_env)
                 for agent_handle in train_env.get_agent_handles():
                     agent = train_env.agents[agent_handle]

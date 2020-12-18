@@ -17,6 +17,7 @@ class DDDQNPolicy(Policy):
     """Dueling Double DQN policy"""
 
     def __init__(self, state_size, action_size, in_parameters, evaluation_mode=False):
+        print(">> DDDQNPolicy")
         super(Policy, self).__init__()
 
         self.ddqn_parameters = in_parameters

@@ -2,7 +2,7 @@ import numpy as np
 from flatland.envs.rail_env import RailEnv
 
 from reinforcement_learning.policy import Policy
-from reinforcement_learning.ppo_agent import PPOAgent
+from reinforcement_learning.ppo_agent import PPOPolicy
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
 
@@ -13,7 +13,7 @@ class MultiPolicy(Policy):
         self.memory = []
         self.loss = 0
         self.deadlock_avoidance_policy = DeadLockAvoidanceAgent(env, action_size, False)
-        self.ppo_policy = PPOAgent(state_size + action_size, action_size)
+        self.ppo_policy = PPOPolicy(state_size + action_size, action_size)
 
     def load(self, filename):
         self.ppo_policy.load(filename)

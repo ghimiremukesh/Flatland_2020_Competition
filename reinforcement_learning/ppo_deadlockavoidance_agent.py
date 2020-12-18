@@ -2,6 +2,7 @@ from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.rail_env import RailEnv, RailEnvActions
 
 from reinforcement_learning.policy import Policy
+from utils.agent_action_config import map_rail_env_action
 from utils.agent_can_choose_helper import AgentCanChooseHelper
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
@@ -36,9 +37,7 @@ class MultiDecisionAgent(Policy):
                 return self.learning_agent.act(handle, state, eps)
             else:
                 act = self.dead_lock_avoidance_agent.act(handle, state, -1.0)
-                if self.action_size == 4:
-                    act = max(act - 1, 0)
-                return act
+                return map_rail_env_action(act)
         # Agent is still at target cell
         return RailEnvActions.DO_NOTHING
 
