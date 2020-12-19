@@ -176,7 +176,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         policy = PPOPolicy(state_size, get_action_size())
     if False:
         policy = DeadLockAvoidanceAgent(train_env, get_action_size())
-    if True:
+    if False:
         policy = MultiDecisionAgent(train_env, state_size, get_action_size(), policy)
 
     # Load existing policy
@@ -283,11 +283,11 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
             next_obs, all_rewards, done, info = train_env.step(map_actions(action_dict))
 
             # Reward shaping .Dead-lock .NotMoving .NotStarted
-            if False:
+            if True:
                 agent_positions = get_agent_positions(train_env)
                 for agent_handle in train_env.get_agent_handles():
                     agent = train_env.agents[agent_handle]
-                    act = map_action(action_dict.get(agent_handle, RailEnvActions.DO_NOTHING))
+                    act = map_action(action_dict.get(agent_handle, map_rail_env_action(RailEnvActions.DO_NOTHING)))
                     if agent.status == RailAgentStatus.ACTIVE:
                         if done[agent_handle] == False:
                             if check_for_deadlock(agent_handle, train_env, agent_positions):
@@ -298,9 +298,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                                 num_transitions = fast_count_nonzero(possible_transitions)
                                 if num_transitions < 2 and ((act != RailEnvActions.MOVE_FORWARD) or
                                                             (act != RailEnvActions.STOP_MOVING)):
-                                    all_rewards[agent_handle] -= 0.5
-                                else:
-                                    all_rewards[agent_handle] -= 0.01
+                                    all_rewards[agent_handle] -= 1.0
                         else:
                             all_rewards[agent_handle] *= 9.0
                             all_rewards[agent_handle] += 1.0

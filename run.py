@@ -52,7 +52,7 @@ USE_FAST_TREEOBS = True
 USE_PPO_AGENT = True
 
 # Checkpoint to use (remember to push it!)
-checkpoint = "./checkpoints/201217163219-6500.pth"  #
+checkpoint = "./checkpoints/201219090514-8600.pth"  #
 # checkpoint = "./checkpoints/201215212134-12000.pth"  #
 
 EPSILON = 0.0

@@ -30,12 +30,12 @@ def cartpole(use_dddqn=False):
     observation_space = env.observation_space.shape[0]
     action_space = env.action_space.n
     if not use_dddqn:
-        policy = PPOPolicy(observation_space, action_space)
+        policy = PPOPolicy(observation_space, action_space, False)
     else:
         policy = DDDQNPolicy(observation_space, action_space, dddqn_param)
     episode = 0
     checkpoint_interval = 20
-    scores_window = deque(maxlen=checkpoint_interval)
+    scores_window = deque(maxlen=100)
     while True:
         episode += 1
         state = env.reset()
@@ -45,7 +45,7 @@ def cartpole(use_dddqn=False):
 
         policy.start_episode(train=training_mode)
         while True:
-            env.render()
+            # env.render()
             policy.start_step(train=training_mode)
             action = policy.act(handle, state, eps)
             state_next, reward, terminal, info = env.step(action)

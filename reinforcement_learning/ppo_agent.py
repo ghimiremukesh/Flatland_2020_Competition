@@ -96,21 +96,21 @@ class ActorCriticModel(nn.Module):
 
 
 class PPOPolicy(LearningPolicy):
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, use_replay_buffer=False):
         print(">> PPOPolicy")
         super(PPOPolicy, self).__init__()
         # parameters
         self.learning_rate = 1.0e-3
         self.gamma = 0.95
-        self.surrogate_eps_clip = 0.01
-        self.K_epoch = 5
-        self.weight_loss = 0.25
+        self.surrogate_eps_clip = 0.1
+        self.K_epoch = 10
+        self.weight_loss = 0.5
         self.weight_entropy = 0.01
 
         self.buffer_size = 32_000
         self.batch_size = 1024
         self.buffer_min_size = 0
-        self.use_replay_buffer = True
+        self.use_replay_buffer = use_replay_buffer
         self.device = device
 
         self.current_episode_memory = EpisodeBuffers()
@@ -177,10 +177,6 @@ class PPOPolicy(LearningPolicy):
             reward_list.insert(0, discounted_reward)
             state_next_list.insert(0, state_next_i)
             prob_a_list.insert(0, prob_action_i)
-
-        # standard-normalize rewards
-        reward_list = np.array(reward_list)
-        reward_list = (reward_list - reward_list.mean()) / (reward_list.std() + 1.e-5)
 
         if self.use_replay_buffer:
             self._push_transitions_to_replay_buffer(state_list, action_list,
