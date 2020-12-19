@@ -22,7 +22,8 @@ from torch.utils.tensorboard import SummaryWriter
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
 from reinforcement_learning.ppo_agent import PPOPolicy
 from reinforcement_learning.ppo_deadlockavoidance_agent import MultiDecisionAgent
-from utils.agent_action_config import get_flatland_full_action_size, get_action_size, map_actions, map_action
+from utils.agent_action_config import get_flatland_full_action_size, get_action_size, map_actions, map_action, \
+    map_rail_env_action
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import get_agent_positions, check_for_deadlock
 
@@ -173,7 +174,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     # Double Dueling DQN policy
     policy = DDDQNPolicy(state_size, get_action_size(), train_params)
     if True:
-        policy = PPOPolicy(state_size, get_action_size())
+        policy = PPOPolicy(state_size, get_action_size(), use_replay_buffer=True, in_parameters=train_params)
     if False:
         policy = DeadLockAvoidanceAgent(train_env, get_action_size())
     if False:
@@ -517,9 +518,9 @@ def eval_policy(env, tree_observation, policy, train_params, obs_params):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-n", "--n_episodes", help="number of episodes to run", default=12000, type=int)
-    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=2,
+    parser.add_argument("-t", "--training_env_config", help="training config id (eg 0 for Test_0)", default=1,
                         type=int)
-    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=2,
+    parser.add_argument("-e", "--evaluation_env_config", help="evaluation config id (eg 0 for Test_0)", default=1,
                         type=int)
     parser.add_argument("--n_evaluation_episodes", help="number of evaluation episodes", default=10, type=int)
     parser.add_argument("--checkpoint_interval", help="checkpoint interval", default=100, type=int)
