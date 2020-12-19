@@ -1,13 +1,13 @@
 from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.rail_env import RailEnv, RailEnvActions
 
-from reinforcement_learning.policy import Policy
+from reinforcement_learning.policy import HybridPolicy
 from utils.agent_action_config import map_rail_env_action
 from utils.agent_can_choose_helper import AgentCanChooseHelper
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
 
-class MultiDecisionAgent(Policy):
+class MultiDecisionAgent(HybridPolicy):
 
     def __init__(self, env: RailEnv, state_size, action_size, learning_agent):
         self.env = env
@@ -33,7 +33,7 @@ class MultiDecisionAgent(Policy):
         if agent.status < RailAgentStatus.DONE:
             agents_on_switch, agents_near_to_switch, _, _ = \
                 self.agent_can_choose_helper.check_agent_decision(position, direction)
-            if agents_on_switch or agents_near_to_switch:
+            if agents_on_switch:
                 return self.learning_agent.act(handle, state, eps)
             else:
                 act = self.dead_lock_avoidance_agent.act(handle, state, -1.0)

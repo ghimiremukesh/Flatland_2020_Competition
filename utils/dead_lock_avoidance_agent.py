@@ -6,7 +6,7 @@ from flatland.core.env_observation_builder import DummyObservationBuilder
 from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.rail_env import RailEnv, RailEnvActions, fast_count_nonzero
 
-from reinforcement_learning.policy import Policy
+from reinforcement_learning.policy import HeuristicPolicy
 from utils.agent_action_config import map_rail_env_action
 from utils.shortest_distance_walker import ShortestDistanceWalker
 
@@ -75,7 +75,7 @@ class DummyMemory:
         return 0
 
 
-class DeadLockAvoidanceAgent(Policy):
+class DeadLockAvoidanceAgent(HeuristicPolicy):
     def __init__(self, env: RailEnv, action_size, show_debug_plot=False):
         self.env = env
         self.memory = DummyMemory()

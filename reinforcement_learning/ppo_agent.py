@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch.distributions import Categorical
 
 # Hyperparameters
-from reinforcement_learning.policy import Policy
+from reinforcement_learning.policy import LearningPolicy
 from reinforcement_learning.replay_buffer import ReplayBuffer
 
 device = torch.device("cpu")  # "cuda:0" if torch.cuda.is_available() else "cpu")
@@ -92,10 +92,10 @@ class ActorCriticModel(nn.Module):
     def load(self, filename):
         print("load policy from file", filename)
         self.actor = self._load(self.actor, filename + ".actor")
-        self.critic = self._load(self.critic, filename + ".critic")
+        self.critic = self._load(self.critic, filename + ".value")
 
 
-class PPOPolicy(Policy):
+class PPOPolicy(LearningPolicy):
     def __init__(self, state_size, action_size):
         print(">> PPOPolicy")
         super(PPOPolicy, self).__init__()

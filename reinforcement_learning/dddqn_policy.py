@@ -9,11 +9,11 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from reinforcement_learning.model import DuelingQNetwork
-from reinforcement_learning.policy import Policy
+from reinforcement_learning.policy import Policy, LearningPolicy
 from reinforcement_learning.replay_buffer import ReplayBuffer
 
 
-class DDDQNPolicy(Policy):
+class DDDQNPolicy(LearningPolicy):
     """Dueling Double DQN policy"""
 
     def __init__(self, state_size, action_size, in_parameters, evaluation_mode=False):

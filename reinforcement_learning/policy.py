@@ -37,3 +37,15 @@ class Policy:
 
     def clone(self):
         return self
+
+class HeuristicPolicy(Policy):
+    def __init__(self):
+        super(HeuristicPolicy).__init__()
+
+class LearningPolicy(Policy):
+    def __init__(self):
+        super(LearningPolicy).__init__()
+
+class HybridPolicy(Policy):
+    def __init__(self):
+        super(HybridPolicy).__init__()
