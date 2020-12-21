@@ -54,6 +54,9 @@ USE_PPO_AGENT = True
 # Checkpoint to use (remember to push it!)
 checkpoint = "./checkpoints/201219090514-8600.pth"  #
 # checkpoint = "./checkpoints/201215212134-12000.pth"  #
+checkpoint = "./checkpoints/201220171629-12000.pth"  # DDDQN - EPSILON: 0.0 - 13.940848323912533
+checkpoint = "./checkpoints/201220203236-12000.pth"  # PPO - EPSILON: 0.0 - 13.660942453931114
+checkpoint = "./checkpoints/201220214325-12000.pth"  # PPO - EPSILON: 0.0 - 13.463600936043
 
 EPSILON = 0.0
 
