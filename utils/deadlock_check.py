@@ -17,6 +17,15 @@ def get_agent_positions(env):
     return agent_positions
 
 
+def get_agent_targets(env):
+    agent_targets = []
+    for agent_handle in env.get_agent_handles():
+        agent = env.agents[agent_handle]
+        if agent.status == RailAgentStatus.ACTIVE:
+            agent_targets.append(agent.target)
+    return agent_targets
+
+
 def check_for_deadlock(handle, env, agent_positions, check_position=None, check_direction=None):
     agent = env.agents[handle]
     if agent.status == RailAgentStatus.DONE or agent.status == RailAgentStatus.DONE_REMOVED:

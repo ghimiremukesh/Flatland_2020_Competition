@@ -31,7 +31,7 @@ from flatland.evaluators.client import FlatlandRemoteClient
 from flatland.evaluators.client import TimeoutException
 
 from reinforcement_learning.ppo_agent import PPOPolicy
-from reinforcement_learning.ppo_deadlockavoidance_agent import MultiDecisionAgent
+from reinforcement_learning.deadlockavoidance_with_decision_agent import DeadLockAvoidanceWithDecisionAgent
 from utils.agent_action_config import get_action_size, map_actions
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 from utils.deadlock_check import check_if_all_blocked
@@ -147,7 +147,7 @@ while True:
 
     policy = trained_policy
     if USE_MULTI_DECISION_AGENT:
-        policy = MultiDecisionAgent(local_env, state_size, action_size, trained_policy)
+        policy = DeadLockAvoidanceWithDecisionAgent(local_env, state_size, action_size, trained_policy)
     policy.reset(local_env)
     observation = tree_observation.get_many(list(range(nb_agents)))
 

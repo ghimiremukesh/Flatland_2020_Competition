@@ -9,11 +9,10 @@ from pprint import pprint
 
 import numpy as np
 import psutil
-from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.malfunction_generators import malfunction_from_params, MalfunctionParameters
 from flatland.envs.observations import TreeObsForRailEnv
 from flatland.envs.predictions import ShortestPathPredictorForRailEnv
-from flatland.envs.rail_env import RailEnv, RailEnvActions, fast_count_nonzero
+from flatland.envs.rail_env import RailEnv, RailEnvActions
 from flatland.envs.rail_generators import sparse_rail_generator
 from flatland.envs.schedule_generators import sparse_schedule_generator
 from flatland.utils.rendertools import RenderTool
@@ -21,11 +20,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
 from reinforcement_learning.ppo_agent import PPOPolicy
-from reinforcement_learning.ppo_deadlockavoidance_agent import MultiDecisionAgent
-from utils.agent_action_config import get_flatland_full_action_size, get_action_size, map_actions, map_action, \
-    map_rail_env_action
+from reinforcement_learning.deadlockavoidance_with_decision_agent import DeadLockAvoidanceWithDecisionAgent
+from reinforcement_learning.multi_decision_agent import MultiDecisionAgent
+from utils.agent_action_config import get_flatland_full_action_size, get_action_size, map_actions, map_action
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
-from utils.deadlock_check import get_agent_positions, check_for_deadlock
 
 base_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(base_dir))
@@ -172,13 +170,18 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     completion_window = deque(maxlen=checkpoint_interval)
 
     # Double Dueling DQN policy
-    policy = DDDQNPolicy(state_size, get_action_size(), train_params)
-    if True:
+    policy = None
+    if False:
+        policy = DDDQNPolicy(state_size, get_action_size(), train_params)
+    if False:
         policy = PPOPolicy(state_size, get_action_size(), use_replay_buffer=False, in_parameters=train_params)
     if False:
         policy = DeadLockAvoidanceAgent(train_env, get_action_size())
     if False:
-        policy = MultiDecisionAgent(train_env, state_size, get_action_size(), policy)
+        inter_policy = PPOPolicy(state_size, get_action_size(), use_replay_buffer=False, in_parameters=train_params)
+        policy = DeadLockAvoidanceWithDecisionAgent(train_env, state_size, get_action_size(), inter_policy)
+    if True:
+        policy = MultiDecisionAgent(state_size, get_action_size(), train_params)
 
     # Load existing policy
     if train_params.load_policy is not "":
@@ -227,7 +230,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Reset environment
         reset_timer.start()
-        number_of_agents = int(min(n_agents, 1 + np.floor(episode_idx / 500)))
+        number_of_agents = n_agents  # int(min(n_agents, 1 + np.floor(episode_idx / 500)))
         train_env_params.n_agents = episode_idx % number_of_agents + 1
 
         train_env = create_rail_env(train_env_params, tree_observation)

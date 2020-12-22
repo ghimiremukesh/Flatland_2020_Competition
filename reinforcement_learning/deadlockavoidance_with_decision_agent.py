@@ -7,7 +7,7 @@ from utils.agent_can_choose_helper import AgentCanChooseHelper
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
 
-class MultiDecisionAgent(HybridPolicy):
+class DeadLockAvoidanceWithDecisionAgent(HybridPolicy):
 
     def __init__(self, env: RailEnv, state_size, action_size, learning_agent):
         self.env = env

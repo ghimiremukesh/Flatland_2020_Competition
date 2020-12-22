@@ -1,6 +1,14 @@
 from flatland.envs.rail_env import RailEnv
 
 
+class DummyMemory:
+    def __init__(self):
+        self.memory = []
+
+    def __len__(self):
+        return 0
+
+
 class Policy:
     def step(self, handle, state, action, reward, next_state, done):
         raise NotImplementedError
@@ -38,13 +46,16 @@ class Policy:
     def clone(self):
         return self
 
+
 class HeuristicPolicy(Policy):
     def __init__(self):
         super(HeuristicPolicy).__init__()
 
+
 class LearningPolicy(Policy):
     def __init__(self):
         super(LearningPolicy).__init__()
+
 
 class HybridPolicy(Policy):
     def __init__(self):

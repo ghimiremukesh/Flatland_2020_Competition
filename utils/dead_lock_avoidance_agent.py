@@ -67,12 +67,7 @@ class DeadlockAvoidanceShortestDistanceWalker(ShortestDistanceWalker):
         self.full_shortest_distance_agent_map[(handle, position[0], position[1])] = 1
 
 
-class DummyMemory:
-    def __init__(self):
-        self.memory = []
 
-    def __len__(self):
-        return 0
 
 
 class DeadLockAvoidanceAgent(HeuristicPolicy):
