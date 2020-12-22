@@ -6,7 +6,7 @@ from flatland.core.env_observation_builder import DummyObservationBuilder
 from flatland.envs.agent_utils import RailAgentStatus
 from flatland.envs.rail_env import RailEnv, RailEnvActions, fast_count_nonzero
 
-from reinforcement_learning.policy import HeuristicPolicy
+from reinforcement_learning.policy import HeuristicPolicy, DummyMemory
 from utils.agent_action_config import map_rail_env_action
 from utils.shortest_distance_walker import ShortestDistanceWalker
 
@@ -65,10 +65,6 @@ class DeadlockAvoidanceShortestDistanceWalker(ShortestDistanceWalker):
             if self.switches.get(position, None) is None:
                 self.shortest_distance_agent_map[(handle, position[0], position[1])] = 1
         self.full_shortest_distance_agent_map[(handle, position[0], position[1])] = 1
-
-
-
-
 
 class DeadLockAvoidanceAgent(HeuristicPolicy):
     def __init__(self, env: RailEnv, action_size, show_debug_plot=False):

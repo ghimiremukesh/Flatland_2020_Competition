@@ -177,11 +177,15 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         policy = PPOPolicy(state_size, get_action_size(), use_replay_buffer=False, in_parameters=train_params)
     if False:
         policy = DeadLockAvoidanceAgent(train_env, get_action_size())
-    if False:
-        inter_policy = PPOPolicy(state_size, get_action_size(), use_replay_buffer=False, in_parameters=train_params)
-        policy = DeadLockAvoidanceWithDecisionAgent(train_env, state_size, get_action_size(), inter_policy)
     if True:
+        inter_policy = DDDQNPolicy(state_size, get_action_size(), train_params)
+        policy = DeadLockAvoidanceWithDecisionAgent(train_env, state_size, get_action_size(), inter_policy)
+    if False:
         policy = MultiDecisionAgent(state_size, get_action_size(), train_params)
+
+    # make sure that at least one policy is set
+    if policy is None:
+        policy = DDDQNPolicy(state_size, get_action_size(), train_params)
 
     # Load existing policy
     if train_params.load_policy is not "":

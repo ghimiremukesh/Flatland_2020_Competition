@@ -10,6 +10,8 @@ from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 class DeadLockAvoidanceWithDecisionAgent(HybridPolicy):
 
     def __init__(self, env: RailEnv, state_size, action_size, learning_agent):
+        print(">> DeadLockAvoidanceWithDecisionAgent")
+        super(DeadLockAvoidanceWithDecisionAgent, self).__init__()
         self.env = env
         self.state_size = state_size
         self.action_size = action_size
@@ -33,7 +35,7 @@ class DeadLockAvoidanceWithDecisionAgent(HybridPolicy):
         if agent.status < RailAgentStatus.DONE:
             agents_on_switch, agents_near_to_switch, _, _ = \
                 self.agent_can_choose_helper.check_agent_decision(position, direction)
-            if agents_on_switch:
+            if agents_on_switch or agents_near_to_switch:
                 return self.learning_agent.act(handle, state, eps)
             else:
                 act = self.dead_lock_avoidance_agent.act(handle, state, -1.0)
