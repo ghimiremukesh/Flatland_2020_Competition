@@ -178,6 +178,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     if False:
         policy = DeadLockAvoidanceAgent(train_env, get_action_size())
     if True:
+        # inter_policy = PPOPolicy(state_size, get_action_size(), use_replay_buffer=False, in_parameters=train_params)
         inter_policy = DDDQNPolicy(state_size, get_action_size(), train_params)
         policy = DeadLockAvoidanceWithDecisionAgent(train_env, state_size, get_action_size(), inter_policy)
     if False:
@@ -234,7 +235,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
 
         # Reset environment
         reset_timer.start()
-        number_of_agents = n_agents  # int(min(n_agents, 1 + np.floor(episode_idx / 500)))
+        number_of_agents = int(min(n_agents, 1 + np.floor(episode_idx / 200)))
         train_env_params.n_agents = episode_idx % number_of_agents + 1
 
         train_env = create_rail_env(train_env_params, tree_observation)

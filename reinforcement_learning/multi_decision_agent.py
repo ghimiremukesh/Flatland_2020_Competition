@@ -22,9 +22,9 @@ class MultiDecisionAgent(LearningPolicy):
 
 
     def step(self, handle, state, action, reward, next_state, done):
-        select = self.policy_selector.act(handle, state, 0.0)
         self.ppo_policy.step(handle, state, action, reward, next_state, done)
         self.dddqn_policy.step(handle, state, action, reward, next_state, done)
+        select = self.policy_selector.act(handle, state, 0.0)
         self.policy_selector.step(handle, state, select, reward, next_state, done)
 
     def act(self, handle, state, eps=0.):
