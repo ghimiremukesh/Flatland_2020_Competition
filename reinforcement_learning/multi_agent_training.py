@@ -189,7 +189,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         policy = DDDQNPolicy(state_size, get_action_size(), train_params)
 
     # Load existing policy
-    if train_params.load_policy is not '':
+    if train_params.load_policy != "":
         policy.load(train_params.load_policy)
 
     # Loads existing replay buffer
