@@ -431,6 +431,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
         writer.add_scalar("timer/learn", learn_timer.get(), episode_idx)
         writer.add_scalar("timer/preproc", preproc_timer.get(), episode_idx)
         writer.add_scalar("timer/total", training_timer.get_current(), episode_idx)
+        writer.flush()
 
 
 def format_action_prob(action_probs):
