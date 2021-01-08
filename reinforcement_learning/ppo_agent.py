@@ -34,7 +34,7 @@ class EpisodeBuffers:
 
 class ActorCriticModel(nn.Module):
 
-    def __init__(self, state_size, action_size, device, hidsize1=128, hidsize2=128):
+    def __init__(self, state_size, action_size, device, hidsize1=512, hidsize2=256):
         super(ActorCriticModel, self).__init__()
         self.device = device
         self.actor = nn.Sequential(
