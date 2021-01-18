@@ -11,16 +11,19 @@ def get_flatland_full_action_size():
 
 
 def set_action_size_full():
+    global _agent_action_config_action_size
     # The agents (DDDQN, PPO, ... ) have this actions space
     _agent_action_config_action_size = 5
 
 
 def set_action_size_reduced():
+    global _agent_action_config_action_size
     # The agents (DDDQN, PPO, ... ) have this actions space
     _agent_action_config_action_size = 4
 
 
 def get_action_size():
+    global _agent_action_config_action_size
     # The agents (DDDQN, PPO, ... ) have this actions space
     return _agent_action_config_action_size
 
