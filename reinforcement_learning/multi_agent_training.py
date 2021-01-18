@@ -22,7 +22,8 @@ from reinforcement_learning.dddqn_policy import DDDQNPolicy
 from reinforcement_learning.deadlockavoidance_with_decision_agent import DeadLockAvoidanceWithDecisionAgent
 from reinforcement_learning.multi_decision_agent import MultiDecisionAgent
 from reinforcement_learning.ppo_agent import PPOPolicy
-from utils.agent_action_config import get_flatland_full_action_size, get_action_size, map_actions, map_action
+from utils.agent_action_config import get_flatland_full_action_size, get_action_size, map_actions, map_action, \
+    set_action_size_reduced, set_action_size_full, map_action_policy
 from utils.dead_lock_avoidance_agent import DeadLockAvoidanceAgent
 
 base_dir = Path(__file__).resolve().parent.parent
@@ -169,6 +170,11 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
     scores_window = deque(maxlen=checkpoint_interval)  # todo smooth when rendering instead
     completion_window = deque(maxlen=checkpoint_interval)
 
+    if train_params.action_size == "reduced":
+        set_action_size_reduced()
+    else:
+        set_action_size_full()
+
     # Double Dueling DQN policy
     if train_params.policy == "DDDQN":
         policy = DDDQNPolicy(state_size, get_action_size(), train_params)
@@ -212,7 +218,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                 hdd.free / (2 ** 30)))
 
     # TensorBoard writer
-    writer = SummaryWriter()
+    writer = SummaryWriter(comment="_" + train_params.policy + "_" + train_params.action_size)
 
     training_timer = Timer()
     training_timer.start()
@@ -313,7 +319,7 @@ def train_agent(train_params, train_env_params, eval_env_params, obs_params):
                     learn_timer.start()
                     policy.step(agent_handle,
                                 agent_prev_obs[agent_handle],
-                                agent_prev_action[agent_handle] - 1,
+                                map_action_policy(agent_prev_action[agent_handle]),
                                 all_rewards[agent_handle],
                                 agent_obs[agent_handle],
                                 done[agent_handle])
@@ -540,7 +546,8 @@ if __name__ == "__main__":
     parser.add_argument("--max_depth", help="max depth", default=2, type=int)
     parser.add_argument("--policy",
                         help="policy name [DDDQN, PPO, DeadLockAvoidance, DeadLockAvoidanceWithDecision, MultiDecision]",
-                        default="ppo")
+                        default="DeadLockAvoidance")
+    parser.add_argument("--action_size", help="define the action size [reduced,full]", default="full", type=str)
 
     training_params = parser.parse_args()
     env_params = [

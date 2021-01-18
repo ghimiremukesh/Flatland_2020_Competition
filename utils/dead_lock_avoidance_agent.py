@@ -67,7 +67,8 @@ class DeadlockAvoidanceShortestDistanceWalker(ShortestDistanceWalker):
         self.full_shortest_distance_agent_map[(handle, position[0], position[1])] = 1
 
 class DeadLockAvoidanceAgent(HeuristicPolicy):
-    def __init__(self, env: RailEnv, action_size, show_debug_plot=False):
+    def __init__(self, env: RailEnv, action_size, enable_eps=False, show_debug_plot=False):
+        print(">> DeadLockAvoidance")
         self.env = env
         self.memory = DummyMemory()
         self.loss = 0
@@ -76,14 +77,16 @@ class DeadLockAvoidanceAgent(HeuristicPolicy):
         self.agent_can_move_value = {}
         self.switches = {}
         self.show_debug_plot = show_debug_plot
+        self.enable_eps = enable_eps
 
     def step(self, handle, state, action, reward, next_state, done):
         pass
 
     def act(self, handle, state, eps=0.):
         # Epsilon-greedy action selection
-        if np.random.random() < eps:
-            return np.random.choice(np.arange(self.action_size))
+        if self.enable_eps:
+            if np.random.random() < eps:
+                return np.random.choice(np.arange(self.action_size))
 
         # agent = self.env.agents[state[0]]
         check = self.agent_can_move.get(handle, None)
