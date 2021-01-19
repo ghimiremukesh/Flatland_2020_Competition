@@ -85,7 +85,7 @@ class ActorCriticModel(nn.Module):
         return obj
 
     def load(self, filename):
-        print("load policy from file", filename)
+        print("load model from file", filename)
         self.actor = self._load(self.actor, filename + ".actor")
         self.critic = self._load(self.critic, filename + ".value")
 
@@ -284,6 +284,8 @@ class PPOPolicy(LearningPolicy):
                 obj.load_state_dict(torch.load(filename, map_location=self.device))
             except:
                 print(" >> failed!")
+        else:
+            print(" >> file not found!")
         return obj
 
     def load(self, filename):
