@@ -68,10 +68,10 @@ EPSILON = 0.0
 # Checkpoint to use (remember to push it!)
 set_action_size_reduced()
 load_policy = "DDDQN"
-checkpoint = "./checkpoints/210119171409-10000.pth"  # 12.18162927750207
+checkpoint = "./checkpoints/210122120236-3000.pth"  # 17.011131341978228
 EPSILON = 0.0
 
-load_policy = "DeadLockAvoidance"
+# load_policy = "DeadLockAvoidance" # 22.13346834815911
 
 # Use last action cache
 USE_ACTION_CACHE = False
