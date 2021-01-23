@@ -51,17 +51,17 @@ set_action_size_full()
 # Print per-step logs
 VERBOSE = True
 USE_FAST_TREEOBS = True
-USE_PPO_AGENT = True
 
-# Checkpoint to use (remember to push it!)
-# 116591 adrian_egli
-# graded	71.305	0.633	RL	Successfully Graded ! More details about this submission can be found at:
-# http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/51
-# Fri, 22 Jan 2021 23:37:56
-set_action_size_reduced()
-load_policy = "DDDQN"
-checkpoint = "./checkpoints/210122120236-3000.pth"  # 17.011131341978228
-EPSILON = 0.0
+if False:
+    # Checkpoint to use (remember to push it!)
+    # 116591 adrian_egli
+    # graded	71.305	0.633	RL	Successfully Graded ! More details about this submission can be found at:
+    # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/51
+    # Fri, 22 Jan 2021 23:37:56
+    set_action_size_reduced()
+    load_policy = "DDDQN"
+    checkpoint = "./checkpoints/210122120236-3000.pth"  # 17.011131341978228
+    EPSILON = 0.0
 
 if False:
     # 116658 adrian_egli
@@ -83,12 +83,11 @@ if True:
     checkpoint = "./checkpoints/210122165109-5000.pth"  # 17.993750197899438
     EPSILON = 0.0
 
-
-if True:
-    # 116659 adrian_egli
-    # graded	80.579	0.715	RL	Successfully Graded ! More details about this submission can be found at:
-    # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/53
-    # Sat, 23 Jan 2021 07:45:49
+if False:
+    # 116727 adrian_egli
+    # graded	106.786	0.768	RL	Successfully Graded ! More details about this submission can be found at:
+    # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/54
+    # Sat, 23 Jan 2021 14:31:50
     set_action_size_reduced()
     load_policy = "DeadLockAvoidance"
     checkpoint = None
