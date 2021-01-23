@@ -71,6 +71,15 @@ load_policy = "DDDQN"
 checkpoint = "./checkpoints/210122120236-3000.pth"  # 17.011131341978228
 EPSILON = 0.0
 
+
+load_policy = "DDDQN"
+checkpoint = "./checkpoints/210122165109-5000.pth"  # 14.438561289066921
+EPSILON = 0.0
+
+load_policy = "PPO"
+checkpoint = "./checkpoints/210122235754-5000.pth"  # 16.2589510774425
+EPSILON = 0.0
+
 # load_policy = "DeadLockAvoidance" # 22.13346834815911
 
 # Use last action cache
