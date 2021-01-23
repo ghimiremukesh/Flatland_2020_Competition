@@ -54,19 +54,7 @@ USE_FAST_TREEOBS = True
 USE_PPO_AGENT = True
 
 # Checkpoint to use (remember to push it!)
-set_action_size_reduced()
-load_policy = "DeadLockAvoidanceWithDecision"
-checkpoint = "./checkpoints/210119075622-10000.pth"  # 22.13346834815911
-EPSILON = 0.0
-
-# Checkpoint to use (remember to push it!)
-set_action_size_reduced()
-load_policy = "PPO"
-checkpoint = "./checkpoints/210119134958-10000.pth"  # 12.18162927750207
-EPSILON = 0.0
-
-# Checkpoint to use (remember to push it!)
-#116591 adrian_egli
+# 116591 adrian_egli
 # graded	71.305	0.633	RL	Successfully Graded ! More details about this submission can be found at:
 # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/51
 # Fri, 22 Jan 2021 23:37:56
@@ -75,17 +63,35 @@ load_policy = "DDDQN"
 checkpoint = "./checkpoints/210122120236-3000.pth"  # 17.011131341978228
 EPSILON = 0.0
 
+if False:
+    # 116658 adrian_egli
+    # graded	73.821	0.655	RL	Successfully Graded ! More details about this submission can be found at:
+    # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/52
+    # Sat, 23 Jan 2021 07:41:35
+    set_action_size_reduced()
+    load_policy = "PPO"
+    checkpoint = "./checkpoints/210122235754-5000.pth"  # 16.00113400887389
+    EPSILON = 0.0
 
 if True:
+    # 116659 adrian_egli
+    # graded	80.579	0.715	RL	Successfully Graded ! More details about this submission can be found at:
+    # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/53
+    # Sat, 23 Jan 2021 07:45:49
     set_action_size_reduced()
     load_policy = "DDDQN"
     checkpoint = "./checkpoints/210122165109-5000.pth"  # 17.993750197899438
     EPSILON = 0.0
 
-if False:
+
+if True:
+    # 116659 adrian_egli
+    # graded	80.579	0.715	RL	Successfully Graded ! More details about this submission can be found at:
+    # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/53
+    # Sat, 23 Jan 2021 07:45:49
     set_action_size_reduced()
-    load_policy = "PPO"
-    checkpoint = "./checkpoints/210122235754-5000.pth"  # 16.00113400887389
+    load_policy = "DeadLockAvoidance"
+    checkpoint = None
     EPSILON = 0.0
 
 # load_policy = "DeadLockAvoidance" # 22.13346834815911
