@@ -66,19 +66,27 @@ checkpoint = "./checkpoints/210119134958-10000.pth"  # 12.18162927750207
 EPSILON = 0.0
 
 # Checkpoint to use (remember to push it!)
+#116591 adrian_egli
+# graded	71.305	0.633	RL	Successfully Graded ! More details about this submission can be found at:
+# http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/51
+# Fri, 22 Jan 2021 23:37:56
 set_action_size_reduced()
 load_policy = "DDDQN"
 checkpoint = "./checkpoints/210122120236-3000.pth"  # 17.011131341978228
 EPSILON = 0.0
 
 
-load_policy = "DDDQN"
-checkpoint = "./checkpoints/210122165109-5000.pth"  # 14.438561289066921
-EPSILON = 0.0
+if True:
+    set_action_size_reduced()
+    load_policy = "DDDQN"
+    checkpoint = "./checkpoints/210122165109-5000.pth"  # 17.993750197899438
+    EPSILON = 0.0
 
-load_policy = "PPO"
-checkpoint = "./checkpoints/210122235754-5000.pth"  # 16.2589510774425
-EPSILON = 0.0
+if False:
+    set_action_size_reduced()
+    load_policy = "PPO"
+    checkpoint = "./checkpoints/210122235754-5000.pth"  # 16.00113400887389
+    EPSILON = 0.0
 
 # load_policy = "DeadLockAvoidance" # 22.13346834815911
 
