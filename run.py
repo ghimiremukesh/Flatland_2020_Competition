@@ -53,7 +53,9 @@ VERBOSE = True
 USE_FAST_TREEOBS = True
 
 if False:
-    # Checkpoint to use (remember to push it!)
+    # -------------------------------------------------------------------------------------------------------
+    # RL solution
+    # -------------------------------------------------------------------------------------------------------
     # 116591 adrian_egli
     # graded	71.305	0.633	RL	Successfully Graded ! More details about this submission can be found at:
     # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/51
@@ -64,6 +66,9 @@ if False:
     EPSILON = 0.0
 
 if False:
+    # -------------------------------------------------------------------------------------------------------
+    # RL solution
+    # -------------------------------------------------------------------------------------------------------
     # 116658 adrian_egli
     # graded	73.821	0.655	RL	Successfully Graded ! More details about this submission can be found at:
     # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/52
@@ -74,6 +79,9 @@ if False:
     EPSILON = 0.0
 
 if True:
+    # -------------------------------------------------------------------------------------------------------
+    # RL solution
+    # -------------------------------------------------------------------------------------------------------
     # 116659 adrian_egli
     # graded	80.579	0.715	RL	Successfully Graded ! More details about this submission can be found at:
     # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/53
@@ -84,6 +92,9 @@ if True:
     EPSILON = 0.0
 
 if False:
+    # -------------------------------------------------------------------------------------------------------
+    # !! This is not a RL solution !!!!
+    # -------------------------------------------------------------------------------------------------------
     # 116727 adrian_egli
     # graded	106.786	0.768	RL	Successfully Graded ! More details about this submission can be found at:
     # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/54
