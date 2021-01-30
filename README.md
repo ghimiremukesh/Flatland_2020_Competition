@@ -1,101 +1,105 @@
-🚂 Starter Kit - NeurIPS 2020 Flatland Challenge
-===
-
-This starter kit contains 2 example policies to get started with this challenge: 
-- a simple single-agent DQN method
-- a more robust multi-agent DQN method that you can submit out of the box to the challenge 🚀
-
-**🔗 [Train the single-agent DQN policy](https://flatland.aicrowd.com/getting-started/rl/single-agent.html)**
-
-**🔗 [Train the multi-agent DQN policy](https://flatland.aicrowd.com/getting-started/rl/multi-agent.html)**
-
-**🔗 [Submit a trained policy](https://flatland.aicrowd.com/getting-started/first-submission.html)**
-
-The single-agent example is meant as a minimal example of how to use DQN. The multi-agent is a better starting point to create your own solution.
-
-You can fully train the multi-agent policy in Colab for free! [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1GbPwZNQU7KJIJtilcGBTtpOAD3EabAzJ?usp=sharing)
-
-Sample training usage
+🚂 This code is based on the official starter kit - NeurIPS 2020 Flatland Challenge
 ---
 
-Train the multi-agent policy for 150 episodes:
 
-```bash
-python reinforcement_learning/multi_agent_training.py -n 150
+You can using for your own experiments 
+```python
+set_action_size_full()
+```
+or 
+```python
+set_action_size_reduced()
+```
+action space. The reduced action space removes DO_NOTHING. 
+
+---
+Have a look into the [run.py](.\run.py) file. There you can select using PPO or DDDQN as RL agents
+ 
+```python
+####################################################
+# EVALUATION PARAMETERS
+set_action_size_full()
+
+# Print per-step logs
+VERBOSE = True
+USE_FAST_TREEOBS = True
+
+if False:
+    # -------------------------------------------------------------------------------------------------------
+    # RL solution
+    # -------------------------------------------------------------------------------------------------------
+    # 116591 adrian_egli
+    # graded	71.305	0.633	RL	Successfully Graded ! More details about this submission can be found at:
+    # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/51
+    # Fri, 22 Jan 2021 23:37:56
+    set_action_size_reduced()
+    load_policy = "DDDQN"
+    checkpoint = "./checkpoints/210122120236-3000.pth"  # 17.011131341978228
+    EPSILON = 0.0
+
+if False:
+    # -------------------------------------------------------------------------------------------------------
+    # RL solution
+    # -------------------------------------------------------------------------------------------------------
+    # 116658 adrian_egli
+    # graded	73.821	0.655	RL	Successfully Graded ! More details about this submission can be found at:
+    # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/52
+    # Sat, 23 Jan 2021 07:41:35
+    set_action_size_reduced()
+    load_policy = "PPO"
+    checkpoint = "./checkpoints/210122235754-5000.pth"  # 16.00113400887389
+    EPSILON = 0.0
+
+if True:
+    # -------------------------------------------------------------------------------------------------------
+    # RL solution
+    # -------------------------------------------------------------------------------------------------------
+    # 116659 adrian_egli
+    # graded	80.579	0.715	RL	Successfully Graded ! More details about this submission can be found at:
+    # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/53
+    # Sat, 23 Jan 2021 07:45:49
+    set_action_size_reduced()
+    load_policy = "DDDQN"
+    checkpoint = "./checkpoints/210122165109-5000.pth"  # 17.993750197899438
+    EPSILON = 0.0
+
+if False:
+    # -------------------------------------------------------------------------------------------------------
+    # !! This is not a RL solution !!!!
+    # -------------------------------------------------------------------------------------------------------
+    # 116727 adrian_egli
+    # graded	106.786	0.768	RL	Successfully Graded ! More details about this submission can be found at:
+    # http://gitlab.aicrowd.com/adrian_egli/neurips2020-flatland-starter-kit/issues/54
+    # Sat, 23 Jan 2021 14:31:50
+    set_action_size_reduced()
+    load_policy = "DeadLockAvoidance"
+    checkpoint = None
+    EPSILON = 0.0
 ```
 
-The multi-agent policy training can be tuned using command-line arguments:
+---
+A deadlock avoidance agent is implemented. The agent only lets the train take the shortest route. And it tries to avoid as many deadlocks as possible.
+* [dead_lock_avoidance_agent.py](.\utils\dead_lock_avoidance_agent.py)
 
-```console 
-usage: multi_agent_training.py [-h] [-n N_EPISODES] [-t TRAINING_ENV_CONFIG]
-                               [-e EVALUATION_ENV_CONFIG]
-                               [--n_evaluation_episodes N_EVALUATION_EPISODES]
-                               [--checkpoint_interval CHECKPOINT_INTERVAL]
-                               [--eps_start EPS_START] [--eps_end EPS_END]
-                               [--eps_decay EPS_DECAY]
-                               [--buffer_size BUFFER_SIZE]
-                               [--buffer_min_size BUFFER_MIN_SIZE]
-                               [--restore_replay_buffer RESTORE_REPLAY_BUFFER]
-                               [--save_replay_buffer SAVE_REPLAY_BUFFER]
-                               [--batch_size BATCH_SIZE] [--gamma GAMMA]
-                               [--tau TAU] [--learning_rate LEARNING_RATE]
-                               [--hidden_size HIDDEN_SIZE]
-                               [--update_every UPDATE_EVERY]
-                               [--use_gpu USE_GPU] [--num_threads NUM_THREADS]
-                               [--render RENDER]
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -n N_EPISODES, --n_episodes N_EPISODES
-                        number of episodes to run
-  -t TRAINING_ENV_CONFIG, --training_env_config TRAINING_ENV_CONFIG
-                        training config id (eg 0 for Test_0)
-  -e EVALUATION_ENV_CONFIG, --evaluation_env_config EVALUATION_ENV_CONFIG
-                        evaluation config id (eg 0 for Test_0)
-  --n_evaluation_episodes N_EVALUATION_EPISODES
-                        number of evaluation episodes
-  --checkpoint_interval CHECKPOINT_INTERVAL
-                        checkpoint interval
-  --eps_start EPS_START
-                        max exploration
-  --eps_end EPS_END     min exploration
-  --eps_decay EPS_DECAY
-                        exploration decay
-  --buffer_size BUFFER_SIZE
-                        replay buffer size
-  --buffer_min_size BUFFER_MIN_SIZE
-                        min buffer size to start training
-  --restore_replay_buffer RESTORE_REPLAY_BUFFER
-                        replay buffer to restore
-  --save_replay_buffer SAVE_REPLAY_BUFFER
-                        save replay buffer at each evaluation interval
-  --batch_size BATCH_SIZE
-                        minibatch size
-  --gamma GAMMA         discount factor
-  --tau TAU             soft update of target parameters
-  --learning_rate LEARNING_RATE
-                        learning rate
-  --hidden_size HIDDEN_SIZE
-                        hidden size (2 fc layers)
-  --update_every UPDATE_EVERY
-                        how often to update the network
-  --use_gpu USE_GPU     use GPU if available
-  --num_threads NUM_THREADS
-                        number of threads PyTorch can use
-  --render RENDER       render 1 episode in 100
+---
+The policy interface has changed, please have a look into 
+
+---
+See the tensorboard training output to get some insights:
+```
+tensorboard --logdir ./runs_bench 
 ```
 
-[**📈 Performance training in environments of various sizes**](https://wandb.ai/masterscrat/flatland-examples-reinforcement_learning/reports/Flatland-Starter-Kit-Training-in-environments-of-various-sizes--VmlldzoxNjgxMTk)
-
-[**📈 Performance with various hyper-parameters**](https://app.wandb.ai/masterscrat/flatland-examples-reinforcement_learning/reports/Flatland-Examples--VmlldzoxNDI2MTA)
-
-[![](https://i.imgur.com/Lqrq5GE.png)](https://app.wandb.ai/masterscrat/flatland-examples-reinforcement_learning/reports/Flatland-Examples--VmlldzoxNDI2MTA) 
+---
+If you have any questions write me on the official discord channel **aiAdrian**    
+(Adrian Egli - adrian.egli@gmail.com) 
 
 Main links
 ---
 
 * [Flatland documentation](https://flatland.aicrowd.com/)
-* [NeurIPS 2020 Challenge](https://www.aicrowd.com/challenges/neurips-2020-flatland-challenge/)
+* [Flatland Challenge](https://www.aicrowd.com/challenges/flatland)
 
 Communication
 ---

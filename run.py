@@ -1,4 +1,6 @@
 '''
+I did experiments in an early submission. Please note that the epsilon can have an
+effects on the evaluation outcome :
 DDDQNPolicy experiments - EPSILON impact analysis
 ----------------------------------------------------------------------------------------
 checkpoint = "./checkpoints/201124171810-7800.pth"  # Training on AGENTS=10 with Depth=2
@@ -103,8 +105,6 @@ if False:
     load_policy = "DeadLockAvoidance"
     checkpoint = None
     EPSILON = 0.0
-
-# load_policy = "DeadLockAvoidance" # 22.13346834815911
 
 # Use last action cache
 USE_ACTION_CACHE = False
