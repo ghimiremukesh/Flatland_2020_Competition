@@ -2,7 +2,7 @@
 ---
 
 
-You can using for your own experiments 
+You can use for your own experiments 
 ```python
 set_action_size_full()
 ```
@@ -10,10 +10,10 @@ or
 ```python
 set_action_size_reduced()
 ```
-action space. The reduced action space removes DO_NOTHING. 
+action space. The reduced action space just removes DO_NOTHING. 
 
 ---
-Have a look into the [run.py](.\run.py) file. There you can select using PPO or DDDQN as RL agents
+Have a look into the [run.py](./run.py) file. There you can select using PPO or DDDQN as RL agents. 
  
 ```python
 ####################################################
@@ -79,11 +79,12 @@ if False:
 
 ---
 A deadlock avoidance agent is implemented. The agent only lets the train take the shortest route. And it tries to avoid as many deadlocks as possible.
-* [dead_lock_avoidance_agent.py](.\utils\dead_lock_avoidance_agent.py)
+* [dead_lock_avoidance_agent.py](./utils/dead_lock_avoidance_agent.py)
 
 
 ---
 The policy interface has changed, please have a look into 
+* [policy.py](./reinforcement_learning/policy.py)
 
 ---
 See the tensorboard training output to get some insights:
