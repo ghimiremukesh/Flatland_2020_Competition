@@ -123,7 +123,8 @@ def train_agent(n_episodes):
         # Build agent specific observations
         for agent in env.get_agent_handles():
             if obs[agent]:
-                agent_obs[agent] = normalize_observation(obs[agent], observation_tree_depth, observation_radius=observation_radius)
+                agent_obs[agent] = normalize_observation(obs[agent], observation_tree_depth,
+                                                         observation_radius=observation_radius)
                 agent_prev_obs[agent] = agent_obs[agent].copy()
 
         # Run episode
@@ -132,7 +133,7 @@ def train_agent(n_episodes):
                 if info['action_required'][agent]:
                     # If an action is required, we want to store the obs at that step as well as the action
                     update_values = True
-                    action = policy.act(agent_obs[agent], eps=eps_start)
+                    action = policy.act(agent, agent_obs[agent], eps=eps_start)
                     action_count[action] += 1
                 else:
                     update_values = False
@@ -146,13 +147,16 @@ def train_agent(n_episodes):
             for agent in range(env.get_num_agents()):
                 # Only update the values when we are done or when an action was taken and thus relevant information is present
                 if update_values or done[agent]:
-                    policy.step(agent_prev_obs[agent], agent_prev_action[agent], all_rewards[agent], agent_obs[agent], done[agent])
+                    policy.step(agent,
+                                agent_prev_obs[agent], agent_prev_action[agent], all_rewards[agent],
+                                agent_obs[agent], done[agent])
 
                     agent_prev_obs[agent] = agent_obs[agent].copy()
                     agent_prev_action[agent] = action_dict[agent]
 
                 if next_obs[agent]:
-                    agent_obs[agent] = normalize_observation(next_obs[agent], observation_tree_depth, observation_radius=10)
+                    agent_obs[agent] = normalize_observation(next_obs[agent], observation_tree_depth,
+                                                             observation_radius=10)
 
                 score += all_rewards[agent]
 
@@ -177,15 +181,16 @@ def train_agent(n_episodes):
         else:
             end = " "
 
-        print('\rTraining {} agents on {}x{}\t Episode {}\t Average Score: {:.3f}\tDones: {:.2f}%\tEpsilon: {:.2f} \t Action Probabilities: \t {}'.format(
-            env.get_num_agents(),
-            x_dim, y_dim,
-            episode_idx,
-            np.mean(scores_window),
-            100 * np.mean(completion_window),
-            eps_start,
-            action_probs
-        ), end=end)
+        print(
+            '\rTraining {} agents on {}x{}\t Episode {}\t Average Score: {:.3f}\tDones: {:.2f}%\tEpsilon: {:.2f} \t Action Probabilities: \t {}'.format(
+                env.get_num_agents(),
+                x_dim, y_dim,
+                episode_idx,
+                np.mean(scores_window),
+                100 * np.mean(completion_window),
+                eps_start,
+                action_probs
+            ), end=end)
 
     # Plot overall training progress at the end
     plt.plot(scores)
@@ -197,7 +202,8 @@ def train_agent(n_episodes):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-n", "--n_episodes", dest="n_episodes", help="number of episodes to run", default=500, type=int)
+    parser.add_argument("-n", "--n_episodes", dest="n_episodes", help="number of episodes to run", default=500,
+                        type=int)
     args = parser.parse_args()
 
     train_agent(args.n_episodes)

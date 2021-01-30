@@ -5,7 +5,7 @@ import torch.nn.functional as F
 class DuelingQNetwork(nn.Module):
     """Dueling Q-network (https://arxiv.org/abs/1511.06581)"""
 
-    def __init__(self, state_size, action_size, hidsize1=64, hidsize2=64):
+    def __init__(self, state_size, action_size, hidsize1=128, hidsize2=128):
         super(DuelingQNetwork, self).__init__()
 
         # value network

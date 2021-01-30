@@ -2,7 +2,6 @@ import copy
 import os
 import pickle
 import random
-from collections import namedtuple, deque, Iterable
 
 import numpy as np
 import torch
@@ -10,32 +9,37 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from reinforcement_learning.model import DuelingQNetwork
-from reinforcement_learning.policy import Policy
+from reinforcement_learning.policy import Policy, LearningPolicy
+from reinforcement_learning.replay_buffer import ReplayBuffer
 
 
-class DDDQNPolicy(Policy):
+class DDDQNPolicy(LearningPolicy):
     """Dueling Double DQN policy"""
 
-    def __init__(self, state_size, action_size, parameters, evaluation_mode=False):
+    def __init__(self, state_size, action_size, in_parameters, evaluation_mode=False):
+        print(">> DDDQNPolicy")
+        super(Policy, self).__init__()
+
+        self.ddqn_parameters = in_parameters
         self.evaluation_mode = evaluation_mode
 
         self.state_size = state_size
         self.action_size = action_size
         self.double_dqn = True
-        self.hidsize = 1
+        self.hidsize = 128
 
         if not evaluation_mode:
-            self.hidsize = parameters.hidden_size
-            self.buffer_size = parameters.buffer_size
-            self.batch_size = parameters.batch_size
-            self.update_every = parameters.update_every
-            self.learning_rate = parameters.learning_rate
-            self.tau = parameters.tau
-            self.gamma = parameters.gamma
-            self.buffer_min_size = parameters.buffer_min_size
+            self.hidsize = self.ddqn_parameters.hidden_size
+            self.buffer_size = self.ddqn_parameters.buffer_size
+            self.batch_size = self.ddqn_parameters.batch_size
+            self.update_every = self.ddqn_parameters.update_every
+            self.learning_rate = self.ddqn_parameters.learning_rate
+            self.tau = self.ddqn_parameters.tau
+            self.gamma = self.ddqn_parameters.gamma
+            self.buffer_min_size = self.ddqn_parameters.buffer_min_size
 
-        # Device
-        if parameters.use_gpu and torch.cuda.is_available():
+            # Device
+        if self.ddqn_parameters.use_gpu and torch.cuda.is_available():
             self.device = torch.device("cuda:0")
             # print("🐇 Using GPU")
         else:
@@ -43,15 +47,19 @@ class DDDQNPolicy(Policy):
             # print("🐢 Using CPU")
 
         # Q-Network
-        self.qnetwork_local = DuelingQNetwork(state_size, action_size, hidsize1=self.hidsize, hidsize2=self.hidsize).to(
-            self.device)
+        self.qnetwork_local = DuelingQNetwork(state_size,
+                                              action_size,
+                                              hidsize1=self.hidsize,
+                                              hidsize2=self.hidsize).to(self.device)
 
         if not evaluation_mode:
             self.qnetwork_target = copy.deepcopy(self.qnetwork_local)
             self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.learning_rate)
             self.memory = ReplayBuffer(action_size, self.buffer_size, self.batch_size, self.device)
-
             self.t_step = 0
+            self.loss = 0.0
+        else:
+            self.memory = ReplayBuffer(action_size, 1, 1, self.device)
             self.loss = 0.0
 
     def act(self, handle, state, eps=0.):
@@ -59,10 +67,11 @@ class DDDQNPolicy(Policy):
         self.qnetwork_local.eval()
         with torch.no_grad():
             action_values = self.qnetwork_local(state)
+
         self.qnetwork_local.train()
 
         # Epsilon-greedy action selection
-        if random.random() > eps:
+        if random.random() >= eps:
             return np.argmax(action_values.cpu().data.numpy())
         else:
             return random.choice(np.arange(self.action_size))
@@ -80,23 +89,9 @@ class DDDQNPolicy(Policy):
             if len(self.memory) > self.buffer_min_size and len(self.memory) > self.batch_size:
                 self._learn()
 
-    def _clip_gradient(self, model, clip):
-        """Computes a gradient clipping coefficient based on gradient norm."""
-        totalnorm = 0
-        for p in model.parameters():
-            if p.grad is not None:
-                modulenorm = p.grad.data.norm()
-                totalnorm += modulenorm ** 2
-        totalnorm = np.sqrt(totalnorm)
-        coeff = min(1, clip / (totalnorm + 1e-6))
-
-        for p in model.parameters():
-            if p.grad is not None:
-                p.grad.mul_(coeff)
-
     def _learn(self):
         experiences = self.memory.sample()
-        states, actions, rewards, next_states, dones = experiences
+        states, actions, rewards, next_states, dones, _ = experiences
 
         # Get expected Q values from local model
         q_expected = self.qnetwork_local(states).gather(1, actions)
@@ -118,10 +113,6 @@ class DDDQNPolicy(Policy):
         # Minimize the loss
         self.optimizer.zero_grad()
         self.loss.backward()
-        # for param in self.qnetwork_local.parameters():
-        #   param.grad.data.clamp_(-1.0, 1.0)
-        self._clip_gradient(self.qnetwork_local, 1.0)
-
         self.optimizer.step()
 
         # Update target network
@@ -138,13 +129,20 @@ class DDDQNPolicy(Policy):
         torch.save(self.qnetwork_target.state_dict(), filename + ".target")
 
     def load(self, filename):
-        print("load policy from file", filename)
-        if os.path.exists(filename + ".local"):
-            print(' >> ', filename + ".local")
-            self.qnetwork_local.load_state_dict(torch.load(filename + ".local"))
-        if os.path.exists(filename + ".target"):
-            print(' >> ', filename + ".target")
-            self.qnetwork_target.load_state_dict(torch.load(filename + ".target"))
+        try:
+            if os.path.exists(filename + ".local") and os.path.exists(filename + ".target"):
+                self.qnetwork_local.load_state_dict(torch.load(filename + ".local", map_location=self.device))
+                print("qnetwork_local loaded ('{}')".format(filename + ".local"))
+                if not self.evaluation_mode:
+                    self.qnetwork_target.load_state_dict(torch.load(filename + ".target", map_location=self.device))
+                    print("qnetwork_target loaded ('{}' )".format(filename + ".target"))
+            else:
+                print(">> Checkpoint not found, using untrained policy! ('{}', '{}')".format(filename + ".local",
+                                                                                             filename + ".target"))
+        except Exception as exc:
+            print(exc)
+            print("Couldn't load policy from, using untrained policy! ('{}', '{}')".format(filename + ".local",
+                                                                                           filename + ".target"))
 
     def save_replay_buffer(self, filename):
         memory = self.memory.memory
@@ -156,57 +154,11 @@ class DDDQNPolicy(Policy):
             self.memory.memory = pickle.load(f)
 
     def test(self):
-        self.act(np.array([[0] * self.state_size]))
+        self.act(0, np.array([[0] * self.state_size]))
         self._learn()
 
-
-Experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
-
-
-class ReplayBuffer:
-    """Fixed-size buffer to store experience tuples."""
-
-    def __init__(self, action_size, buffer_size, batch_size, device):
-        """Initialize a ReplayBuffer object.
-
-        Params
-        ======
-            action_size (int): dimension of each action
-            buffer_size (int): maximum size of buffer
-            batch_size (int): size of each training batch
-        """
-        self.action_size = action_size
-        self.memory = deque(maxlen=buffer_size)
-        self.batch_size = batch_size
-        self.device = device
-
-    def add(self, state, action, reward, next_state, done):
-        """Add a new experience to memory."""
-        e = Experience(np.expand_dims(state, 0), action, reward, np.expand_dims(next_state, 0), done)
-        self.memory.append(e)
-
-    def sample(self):
-        """Randomly sample a batch of experiences from memory."""
-        experiences = random.sample(self.memory, k=self.batch_size)
-
-        states = torch.from_numpy(self.__v_stack_impr([e.state for e in experiences if e is not None])) \
-            .float().to(self.device)
-        actions = torch.from_numpy(self.__v_stack_impr([e.action for e in experiences if e is not None])) \
-            .long().to(self.device)
-        rewards = torch.from_numpy(self.__v_stack_impr([e.reward for e in experiences if e is not None])) \
-            .float().to(self.device)
-        next_states = torch.from_numpy(self.__v_stack_impr([e.next_state for e in experiences if e is not None])) \
-            .float().to(self.device)
-        dones = torch.from_numpy(self.__v_stack_impr([e.done for e in experiences if e is not None]).astype(np.uint8)) \
-            .float().to(self.device)
-
-        return states, actions, rewards, next_states, dones
-
-    def __len__(self):
-        """Return the current size of internal memory."""
-        return len(self.memory)
-
-    def __v_stack_impr(self, states):
-        sub_dim = len(states[0][0]) if isinstance(states[0], Iterable) else 1
-        np_states = np.reshape(np.array(states), (len(states), sub_dim))
-        return np_states
+    def clone(self):
+        me = DDDQNPolicy(self.state_size, self.action_size, self.ddqn_parameters, evaluation_mode=True)
+        me.qnetwork_target = copy.deepcopy(self.qnetwork_local)
+        me.qnetwork_target = copy.deepcopy(self.qnetwork_target)
+        return me

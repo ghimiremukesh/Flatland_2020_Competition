@@ -1,13 +1,13 @@
 import sys
-import numpy as np
+from pathlib import Path
 
+import numpy as np
 from flatland.envs.observations import TreeObsForRailEnv
 from flatland.envs.predictions import ShortestPathPredictorForRailEnv
 from flatland.envs.rail_env import RailEnv
 from flatland.envs.rail_generators import complex_rail_generator
 from flatland.envs.schedule_generators import complex_schedule_generator
 from flatland.utils.rendertools import RenderTool
-from pathlib import Path
 
 base_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(base_dir))
@@ -66,7 +66,7 @@ for trials in range(1, n_episodes + 1):
             if done[a]:
                 acting_agent += 1
             if a == acting_agent:
-                action = policy.act(obs[a])
+                action = policy.act(a, obs[a])
             else:
                 action = 4
             action_dict.update({a: action})

@@ -15,7 +15,7 @@ class OrderedPolicy(Policy):
     def __init__(self):
         self.action_size = 5
 
-    def act(self, state, eps=0.):
+    def act(self, handle, state, eps=0.):
         _, distance, _ = split_tree_into_feature_groups(state, 1)
         distance = distance[1:]
         min_dist = min_gt(distance, 0)

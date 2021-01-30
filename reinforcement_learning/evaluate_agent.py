@@ -26,8 +26,9 @@ from utils.observation_utils import normalize_observation
 from reinforcement_learning.dddqn_policy import DDDQNPolicy
 
 
-def eval_policy(env_params, checkpoint, n_eval_episodes, max_steps, action_size, state_size, seed, render, allow_skipping, allow_caching):
-    # Evaluation is faster on CPU (except if you use a really huge)
+def eval_policy(env_params, checkpoint, n_eval_episodes, max_steps, action_size, state_size, seed, render,
+                allow_skipping, allow_caching):
+    # Evaluation is faster on CPU (except if you use a really huge policy)
     parameters = {
         'use_gpu': False
     }
@@ -140,11 +141,12 @@ def eval_policy(env_params, checkpoint, n_eval_episodes, max_steps, action_size,
 
                     else:
                         preproc_timer.start()
-                        norm_obs = normalize_observation(obs[agent], tree_depth=observation_tree_depth, observation_radius=observation_radius)
+                        norm_obs = normalize_observation(obs[agent], tree_depth=observation_tree_depth,
+                                                         observation_radius=observation_radius)
                         preproc_timer.end()
 
                         inference_timer.start()
-                        action = policy.act(norm_obs, eps=0.0)
+                        action = policy.act(agent, norm_obs, eps=0.0)
                         inference_timer.end()
 
                     action_dict.update({agent: action})
@@ -319,12 +321,15 @@ def evaluate_agents(file, n_evaluation_episodes, use_gpu, render, allow_skipping
 
     results = []
     if render:
-        results.append(eval_policy(params, file, eval_per_thread, max_steps, action_size, state_size, 0, render, allow_skipping, allow_caching))
+        results.append(
+            eval_policy(params, file, eval_per_thread, max_steps, action_size, state_size, 0, render, allow_skipping,
+                        allow_caching))
 
     else:
         with Pool() as p:
             results = p.starmap(eval_policy,
-                                [(params, file, 1, max_steps, action_size, state_size, seed * nb_threads, render, allow_skipping, allow_caching)
+                                [(params, file, 1, max_steps, action_size, state_size, seed * nb_threads, render,
+                                  allow_skipping, allow_caching)
                                  for seed in
                                  range(total_nb_eval)])
 
@@ -367,10 +372,12 @@ if __name__ == "__main__":
 
     parser.add_argument("--use_gpu", dest="use_gpu", help="use GPU if available", action='store_true')
     parser.add_argument("--render", help="render a single episode", action='store_true')
-    parser.add_argument("--allow_skipping", help="skips to the end of the episode if all agents are deadlocked", action='store_true')
+    parser.add_argument("--allow_skipping", help="skips to the end of the episode if all agents are deadlocked",
+                        action='store_true')
     parser.add_argument("--allow_caching", help="caches the last observation-action pair", action='store_true')
     args = parser.parse_args()
 
     os.environ["OMP_NUM_THREADS"] = str(1)
-    evaluate_agents(file=args.file, n_evaluation_episodes=args.n_evaluation_episodes, use_gpu=args.use_gpu, render=args.render,
+    evaluate_agents(file=args.file, n_evaluation_episodes=args.n_evaluation_episodes, use_gpu=args.use_gpu,
+                    render=args.render,
                     allow_skipping=args.allow_skipping, allow_caching=args.allow_caching)
