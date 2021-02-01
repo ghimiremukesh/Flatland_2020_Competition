@@ -1,7 +1,6 @@
 🚂 This code is based on the official starter kit - NeurIPS 2020 Flatland Challenge
 ---
 
-
 You can use for your own experiments 
 ```python
 set_action_size_full()
