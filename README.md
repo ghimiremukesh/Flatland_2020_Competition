@@ -116,6 +116,11 @@ tensorboard --logdir ./runs_bench
 ```
 
 ---
+```
+python reinforcement_learning/multi_agent_training.py --use_fast_tree_observation  --checkpoint_interval 1000 -n 5000
+ --policy DDDQN -t 2 --action_size reduced --buffer_siz 128000
+```
+
 [multi_agent_training.py](./reinforcement_learning/multi_agent_training.py)
 has new or changed parameters. Most important new or changed parameters for training. 
  * policy :  [DDDQN, PPO, DeadLockAvoidance, DeadLockAvoidanceWithDecision, MultiDecision] : Default value
