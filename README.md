@@ -119,6 +119,16 @@ tensorboard --logdir ./runs_bench
 If you have any questions write me on the official discord channel **aiAdrian**    
 (Adrian Egli - adrian.egli@gmail.com) 
 
+Credits
+---
+
+* Florian Laurent <florian@aicrowd.com>
+* Erik Nygren <erik.nygren@sbb.ch>
+* Adrian Egli <adrian.egli@sbb.ch>
+* Sharada Mohanty <mohanty@aicrowd.com>
+* Christian Baumberger <christian.baumberger@sbb.ch>
+* Guillaume Mollard <guillaume.mollard2@gmail.com>
+
 Main links
 ---
 
