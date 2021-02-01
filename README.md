@@ -116,8 +116,91 @@ tensorboard --logdir ./runs_bench
 ```
 
 ---
+[multi_agent_training.py](./reinforcement_learning/multi_agent_training.py)
+has new or changed parameters. Most important new or changed parameters for training. 
+ * policy :  [DDDQN, PPO, DeadLockAvoidance, DeadLockAvoidanceWithDecision, MultiDecision] : Default value
+   DeadLockAvoidance 
+ * use_fast_tree_observation : [false,true] : Default value = true  
+ * action_size: [full, reduced] : Default value = full
+``` 
+usage: multi_agent_training.py [-h] [-n N_EPISODES] [--n_agent_fixed]
+                               [-t TRAINING_ENV_CONFIG]
+                               [-e EVALUATION_ENV_CONFIG]
+                               [--n_evaluation_episodes N_EVALUATION_EPISODES]
+                               [--checkpoint_interval CHECKPOINT_INTERVAL]
+                               [--eps_start EPS_START] [--eps_end EPS_END]
+                               [--eps_decay EPS_DECAY]
+                               [--buffer_size BUFFER_SIZE]
+                               [--buffer_min_size BUFFER_MIN_SIZE]
+                               [--restore_replay_buffer RESTORE_REPLAY_BUFFER]
+                               [--save_replay_buffer SAVE_REPLAY_BUFFER]
+                               [--batch_size BATCH_SIZE] [--gamma GAMMA]
+                               [--tau TAU] [--learning_rate LEARNING_RATE]
+                               [--hidden_size HIDDEN_SIZE]
+                               [--update_every UPDATE_EVERY]
+                               [--use_gpu USE_GPU] [--num_threads NUM_THREADS]
+                               [--render] [--load_policy LOAD_POLICY]
+                               [--use_fast_tree_observation]
+                               [--max_depth MAX_DEPTH] [--policy POLICY]
+                               [--action_size ACTION_SIZE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -n N_EPISODES, --n_episodes N_EPISODES
+                        number of episodes to run
+  --n_agent_fixed       hold the number of agent fixed
+  -t TRAINING_ENV_CONFIG, --training_env_config TRAINING_ENV_CONFIG
+                        training config id (eg 0 for Test_0)
+  -e EVALUATION_ENV_CONFIG, --evaluation_env_config EVALUATION_ENV_CONFIG
+                        evaluation config id (eg 0 for Test_0)
+  --n_evaluation_episodes N_EVALUATION_EPISODES
+                        number of evaluation episodes
+  --checkpoint_interval CHECKPOINT_INTERVAL
+                        checkpoint interval
+  --eps_start EPS_START
+                        max exploration
+  --eps_end EPS_END     min exploration
+  --eps_decay EPS_DECAY
+                        exploration decay
+  --buffer_size BUFFER_SIZE
+                        replay buffer size
+  --buffer_min_size BUFFER_MIN_SIZE
+                        min buffer size to start training
+  --restore_replay_buffer RESTORE_REPLAY_BUFFER
+                        replay buffer to restore
+  --save_replay_buffer SAVE_REPLAY_BUFFER
+                        save replay buffer at each evaluation interval
+  --batch_size BATCH_SIZE
+                        minibatch size
+  --gamma GAMMA         discount factor
+  --tau TAU             soft update of target parameters
+  --learning_rate LEARNING_RATE
+                        learning rate
+  --hidden_size HIDDEN_SIZE
+                        hidden size (2 fc layers)
+  --update_every UPDATE_EVERY
+                        how often to update the network
+  --use_gpu USE_GPU     use GPU if available
+  --num_threads NUM_THREADS
+                        number of threads PyTorch can use
+  --render              render 1 episode in 100
+  --load_policy LOAD_POLICY
+                        policy filename (reference) to load
+  --use_fast_tree_observation
+                        use FastTreeObs instead of stock TreeObs
+  --max_depth MAX_DEPTH
+                        max depth
+  --policy POLICY       policy name [DDDQN, PPO, DeadLockAvoidance,
+                        DeadLockAvoidanceWithDecision, MultiDecision]
+  --action_size ACTION_SIZE
+                        define the action size [reduced,full]
+```                        
+
+
+---
 If you have any questions write me on the official discord channel **aiAdrian**    
 (Adrian Egli - adrian.egli@gmail.com) 
+
 
 Credits
 ---
