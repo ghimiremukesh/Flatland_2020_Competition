@@ -14,7 +14,7 @@ action space. The reduced action space just removes DO_NOTHING.
 
 ---
 The used policy is based on the FastTreeObs in the official starter kit - NeurIPS 2020 Flatland Challenge. But the
- FastTreeObs in this repo is extended version. 
+ FastTreeObs in this repo is an extended version. 
 [fast_tree_obs.py](./utils/fast_tree_obs.py)
 
 ---
