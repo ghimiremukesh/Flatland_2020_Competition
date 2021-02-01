@@ -1,7 +1,26 @@
 🚂 This code is based on the official starter kit - NeurIPS 2020 Flatland Challenge
 ---
 
-You can use for your own experiments 
+You can use for your own experiments full or reduced action space. 
+
+```python
+def map_action(action):
+    # if full action space is used -> no mapping required
+    if get_action_size() == get_flatland_full_action_size():
+        return action
+    
+    # if reduced action space is used -> the action has to be mapped to real flatland actions
+    # The reduced action space removes the DO_NOTHING action from Flatland.
+    if action == 0:
+        return RailEnvActions.MOVE_LEFT
+    if action == 1:
+        return RailEnvActions.MOVE_FORWARD
+    if action == 2:
+        return RailEnvActions.MOVE_RIGHT
+    if action == 3:
+        return RailEnvActions.STOP_MOVING
+```
+
 ```python
 set_action_size_full()
 ```
