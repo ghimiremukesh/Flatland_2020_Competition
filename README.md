@@ -13,6 +13,11 @@ set_action_size_reduced()
 action space. The reduced action space just removes DO_NOTHING. 
 
 ---
+The used policy is based on the FastTreeObs in the official starter kit - NeurIPS 2020 Flatland Challenge. But the
+ FastTreeObs in this repo is extended version. 
+[fast_tree_obs.py](./utils/fast_tree_obs.py)
+
+---
 Have a look into the [run.py](./run.py) file. There you can select using PPO or DDDQN as RL agents. 
  
 ```python
